@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	DefaultBaseURL = "https://clank.host"
+	DefaultBaseURL = ""
 	appName        = "clank"
 )
 
@@ -60,6 +60,7 @@ func ConfigPath() (string, error) {
 func Load(overridePath string) (*Config, error) {
 	v := viper.New()
 	v.SetDefault("base_url", DefaultBaseURL)
+	_ = v.BindEnv("base_url", "CLANK_URL")
 	v.SetDefault("token", "")
 
 	if overridePath != "" {

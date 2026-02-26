@@ -1,6 +1,6 @@
 # Clank CLI
 
-Command-line interface for deploying and managing apps on [Clank](https://clank.host).
+Command-line interface for deploying and managing apps on [Clank](https://github.com/anaremore/clank).
 
 ## Install
 
@@ -45,7 +45,7 @@ make build
 
 ```bash
 # 1. Point to your Clank instance
-clank config set base_url https://clank.host
+clank config set base_url https://your-clank-instance.com
 
 # 2. Log in
 clank login
@@ -69,7 +69,7 @@ clank logs <service-id>
 
 ```bash
 clank login                          # Interactive login (email + password)
-clank login --email admin@clank.host # Pre-fill email
+clank login --email admin@your-domain.com # Pre-fill email
 ```
 
 The auth token is stored in `~/.config/clank/config.yaml` (0600 permissions).

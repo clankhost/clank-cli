@@ -96,7 +96,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("marshaling clank.yaml: %w", err)
 		}
 
-		header := "# Clank deployment configuration\n# See: https://clank.host/docs/config\n\n"
+		header := "# Clank deployment configuration\n# Docs: https://github.com/anaremore/clank/blob/main/docs/production-setup.md\n\n"
 		if err := os.WriteFile(clankPath, []byte(header+string(data)), 0644); err != nil {
 			return fmt.Errorf("writing clank.yaml: %w", err)
 		}

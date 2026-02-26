@@ -16,11 +16,23 @@ func TestLoadDefaults(t *testing.T) {
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	if cfg.BaseURL != DefaultBaseURL {
-		t.Errorf("expected BaseURL %q, got %q", DefaultBaseURL, cfg.BaseURL)
+	if cfg.BaseURL != "" {
+		t.Errorf("expected empty BaseURL, got %q", cfg.BaseURL)
 	}
 	if cfg.Token != "" {
 		t.Errorf("expected empty token, got %q", cfg.Token)
+	}
+}
+
+func TestEnvVarOverride(t *testing.T) {
+	t.Setenv("CLANK_URL", "https://custom.example.com")
+	cfg, err := Load(filepath.Join(t.TempDir(), "nonexistent.yaml"))
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	if cfg.BaseURL != "https://custom.example.com" {
+		t.Errorf("expected CLANK_URL override, got %q", cfg.BaseURL)
 	}
 }
 
@@ -30,7 +42,7 @@ func TestSaveAndLoad(t *testing.T) {
 
 	// Write config using viper directly.
 	v := viper.New()
-	v.Set("base_url", "https://test.clank.host")
+	v.Set("base_url", "https://test.example.com")
 	v.Set("token", "test-jwt-token-value")
 	v.SetConfigFile(cfgPath)
 	v.SetConfigType("yaml")
@@ -44,8 +56,8 @@ func TestSaveAndLoad(t *testing.T) {
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	if loaded.BaseURL != "https://test.clank.host" {
-		t.Errorf("BaseURL: expected %q, got %q", "https://test.clank.host", loaded.BaseURL)
+	if loaded.BaseURL != "https://test.example.com" {
+		t.Errorf("BaseURL: expected %q, got %q", "https://test.example.com", loaded.BaseURL)
 	}
 	if loaded.Token != "test-jwt-token-value" {
 		t.Errorf("Token: expected %q, got %q", "test-jwt-token-value", loaded.Token)
@@ -61,7 +73,7 @@ func TestFilePermissions(t *testing.T) {
 	cfgPath := filepath.Join(dir, "config.yaml")
 
 	v := viper.New()
-	v.Set("base_url", DefaultBaseURL)
+	v.Set("base_url", "https://test.example.com")
 	v.Set("token", "secret")
 	v.SetConfigFile(cfgPath)
 	v.SetConfigType("yaml")

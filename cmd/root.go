@@ -28,6 +28,15 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("loading config: %w", err)
 		}
+
+		// Guard: commands that need API access require a configured base URL.
+		if cfg.BaseURL == "" && needsBaseURL(cmd) {
+			return fmt.Errorf(
+				"no platform URL configured\n\n" +
+					"Set it with:  clank config set base_url https://your-clank-instance.com\n" +
+					"Or export:    CLANK_URL=https://your-clank-instance.com")
+		}
+
 		return nil
 	},
 	SilenceUsage:  true,
@@ -41,6 +50,22 @@ func Execute() error {
 		return err
 	}
 	return nil
+}
+
+// needsBaseURL returns true if the command requires a configured platform URL.
+func needsBaseURL(cmd *cobra.Command) bool {
+	// Commands that work without a base URL.
+	switch cmd.Name() {
+	case "init":
+		return false
+	}
+	// All config subcommands work without a base URL.
+	for p := cmd; p != nil; p = p.Parent() {
+		if p.Name() == "config" {
+			return false
+		}
+	}
+	return true
 }
 
 func init() {
