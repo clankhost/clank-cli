@@ -61,9 +61,17 @@ var configSetCmd = &cobra.Command{
 			}
 			fmt.Printf("base_url set to %s\n", value)
 		case "token":
-			return fmt.Errorf("use 'clank login' to set the auth token")
+			if strings.HasPrefix(value, "clank_") {
+				// Allow setting API keys directly
+				if err := config.SaveToken(value); err != nil {
+					return err
+				}
+				fmt.Printf("API key set (%s...)\n", value[:14])
+			} else {
+				return fmt.Errorf("use 'clank login' to set a JWT token, or provide an API key (clank_...)")
+			}
 		default:
-			return fmt.Errorf("unknown config key: %s (valid keys: base_url)", key)
+			return fmt.Errorf("unknown config key: %s (valid keys: base_url, token)", key)
 		}
 		return nil
 	},

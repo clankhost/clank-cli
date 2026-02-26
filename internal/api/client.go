@@ -56,9 +56,13 @@ func (c *Client) do(method, path string, body any, result any) error {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	// Auth: send JWT as cookie (matches FastAPI Cookie(default=None) dependency).
+	// Auth: API keys use Authorization header; JWTs use cookie.
 	if c.Token != "" {
-		req.Header.Set("Cookie", "access_token="+c.Token)
+		if strings.HasPrefix(c.Token, "clank_") {
+			req.Header.Set("Authorization", "Bearer "+c.Token)
+		} else {
+			req.Header.Set("Cookie", "access_token="+c.Token)
+		}
 	}
 
 	resp, err := c.HTTPClient.Do(req)
@@ -84,7 +88,7 @@ func (c *Client) do(method, path string, body any, result any) error {
 		}
 
 		if resp.StatusCode == 401 {
-			return &APIError{StatusCode: 401, Detail: "session expired or invalid — run 'clank login'"}
+			return &APIError{StatusCode: 401, Detail: "session expired or invalid — run 'clank login' or use 'clank config set token <api-key>'"}
 		}
 
 		return &APIError{StatusCode: resp.StatusCode, Detail: detail}
@@ -134,7 +138,11 @@ func (c *Client) SSEStream(path string) (io.ReadCloser, error) {
 	req.Header.Set("Cache-Control", "no-cache")
 
 	if c.Token != "" {
-		req.Header.Set("Cookie", "access_token="+c.Token)
+		if strings.HasPrefix(c.Token, "clank_") {
+			req.Header.Set("Authorization", "Bearer "+c.Token)
+		} else {
+			req.Header.Set("Cookie", "access_token="+c.Token)
+		}
 	}
 
 	// No timeout for SSE — streams are long-lived.
