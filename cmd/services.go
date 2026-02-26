@@ -41,7 +41,7 @@ var servicesListCmd = &cobra.Command{
 				status = "active"
 			}
 			rows[i] = []string{
-				output.ShortID(s.ID),
+				s.ID,
 				s.Name,
 				s.RepoURL,
 				s.Branch,

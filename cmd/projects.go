@@ -32,7 +32,7 @@ var projectsListCmd = &cobra.Command{
 		rows := make([][]string, len(projects))
 		for i, p := range projects {
 			rows[i] = []string{
-				output.ShortID(p.ID),
+				p.ID,
 				p.Name,
 				p.Slug,
 				output.TimeSince(p.CreatedAt),

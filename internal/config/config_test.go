@@ -40,13 +40,9 @@ func TestSaveAndLoad(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.yaml")
 
-	// Write config using viper directly.
-	v := viper.New()
-	v.Set("base_url", "https://test.example.com")
-	v.Set("token", "test-jwt-token-value")
-	v.SetConfigFile(cfgPath)
-	v.SetConfigType("yaml")
-	if err := v.SafeWriteConfig(); err != nil {
+	// Write config using direct file write (avoids viper version quirks).
+	data := []byte("base_url: https://test.example.com\ntoken: test-jwt-token-value\n")
+	if err := os.WriteFile(cfgPath, data, 0600); err != nil {
 		t.Fatalf("writing config: %v", err)
 	}
 

@@ -186,7 +186,7 @@ func TestGenerateDockerfileNodeServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateDockerfile failed: %v", err)
 	}
-	if !contains(content, "npm start") {
+	if !contains(content, `"npm", "start"`) {
 		t.Error("expected 'npm start' in Node server Dockerfile")
 	}
 	if !contains(content, "EXPOSE 8080") {
