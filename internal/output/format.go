@@ -33,9 +33,9 @@ func Table(headers []string, rows [][]string) {
 // StatusColor returns the status string with ANSI color codes.
 func StatusColor(status string) string {
 	switch status {
-	case "active":
+	case "active", "online":
 		return "\033[32m" + status + "\033[0m" // green
-	case "failed":
+	case "failed", "offline":
 		return "\033[31m" + status + "\033[0m" // red
 	case "deploying", "health_checking", "building", "cloning":
 		return "\033[33m" + status + "\033[0m" // yellow
