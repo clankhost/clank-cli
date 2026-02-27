@@ -22,7 +22,7 @@ func runRollback(cmd *cobra.Command, args []string) error {
 	targetID, _ := cmd.Flags().GetString("to")
 	noFollow, _ := cmd.Flags().GetBool("no-follow")
 
-	client := api.New(cfg.BaseURL, cfg.Token)
+	client := newClient()
 
 	// If no target specified, find the previous deployment.
 	if targetID == "" {

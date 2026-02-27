@@ -26,7 +26,7 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	serviceID := args[0]
 	noFollow, _ := cmd.Flags().GetBool("no-follow")
 
-	client := api.New(cfg.BaseURL, cfg.Token)
+	client := newClient()
 
 	deployment, err := api.TriggerDeploy(client, serviceID)
 	if err != nil {

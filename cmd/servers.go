@@ -17,7 +17,7 @@ var serversListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List enrolled servers",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := api.New(cfg.BaseURL, cfg.Token)
+		client := newClient()
 		servers, err := api.ListServers(client)
 		if err != nil {
 			return err
@@ -58,7 +58,7 @@ var serversAddCmd = &cobra.Command{
 	Short: "Add a new server and get enrollment token",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := api.New(cfg.BaseURL, cfg.Token)
+		client := newClient()
 		token, err := api.CreateServer(client, args[0])
 		if err != nil {
 			return err
@@ -80,7 +80,7 @@ var serversRemoveCmd = &cobra.Command{
 	Short: "Decommission a server",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := api.New(cfg.BaseURL, cfg.Token)
+		client := newClient()
 		if err := api.DeleteServer(client, args[0]); err != nil {
 			return err
 		}

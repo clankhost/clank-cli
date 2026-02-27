@@ -18,6 +18,7 @@ const (
 type Config struct {
 	BaseURL string `mapstructure:"base_url" yaml:"base_url"`
 	Token   string `mapstructure:"token" yaml:"token"`
+	OrgID   string `mapstructure:"org_id" yaml:"org_id"`
 }
 
 // configDir returns the platform-appropriate config directory.
@@ -62,6 +63,7 @@ func Load(overridePath string) (*Config, error) {
 	v.SetDefault("base_url", DefaultBaseURL)
 	_ = v.BindEnv("base_url", "CLANK_URL")
 	v.SetDefault("token", "")
+	v.SetDefault("org_id", "")
 
 	if overridePath != "" {
 		v.SetConfigFile(overridePath)
@@ -107,6 +109,7 @@ func Save(cfg *Config) error {
 	v := viper.New()
 	v.Set("base_url", cfg.BaseURL)
 	v.Set("token", cfg.Token)
+	v.Set("org_id", cfg.OrgID)
 	v.SetConfigFile(cfgPath)
 	v.SetConfigType("yaml")
 
@@ -144,5 +147,15 @@ func SaveBaseURL(baseURL string) error {
 		return err
 	}
 	cfg.BaseURL = baseURL
+	return Save(cfg)
+}
+
+// SaveOrgID is a convenience method: load config, update org_id, save.
+func SaveOrgID(orgID string) error {
+	cfg, err := Load("")
+	if err != nil {
+		return err
+	}
+	cfg.OrgID = orgID
 	return Save(cfg)
 }

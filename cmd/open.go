@@ -17,7 +17,7 @@ var openCmd = &cobra.Command{
 
 func runOpen(cmd *cobra.Command, args []string) error {
 	serviceID := args[0]
-	client := api.New(cfg.BaseURL, cfg.Token)
+	client := newClient()
 
 	// Get domains for the service.
 	domains, err := api.ListDomains(client, serviceID)

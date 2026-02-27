@@ -17,7 +17,7 @@ var projectsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all projects",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := api.New(cfg.BaseURL, cfg.Token)
+		client := newClient()
 		projects, err := api.ListProjects(client)
 		if err != nil {
 			return err
@@ -51,7 +51,7 @@ var projectsCreateCmd = &cobra.Command{
 		name := args[0]
 		desc, _ := cmd.Flags().GetString("description")
 
-		client := api.New(cfg.BaseURL, cfg.Token)
+		client := newClient()
 		project, err := api.CreateProject(client, name, desc)
 		if err != nil {
 			return err
@@ -67,7 +67,7 @@ var projectsDeleteCmd = &cobra.Command{
 	Short: "Delete a project",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := api.New(cfg.BaseURL, cfg.Token)
+		client := newClient()
 		if err := api.DeleteProject(client, args[0]); err != nil {
 			return err
 		}

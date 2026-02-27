@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/anaremore/clank/apps/cli/internal/api"
 	"github.com/anaremore/clank/apps/cli/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -66,6 +67,13 @@ func needsBaseURL(cmd *cobra.Command) bool {
 		}
 	}
 	return true
+}
+
+// newClient returns an API client configured with org context.
+func newClient() *api.Client {
+	client := api.New(cfg.BaseURL, cfg.Token)
+	client.OrgID = cfg.OrgID
+	return client
 }
 
 func init() {

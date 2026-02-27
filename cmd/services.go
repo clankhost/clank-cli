@@ -22,7 +22,7 @@ var servicesListCmd = &cobra.Command{
 			return fmt.Errorf("--project is required")
 		}
 
-		client := api.New(cfg.BaseURL, cfg.Token)
+		client := newClient()
 		services, err := api.ListServices(client, projectID)
 		if err != nil {
 			return err
@@ -60,7 +60,7 @@ var servicesInfoCmd = &cobra.Command{
 	Short: "Show service details",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := api.New(cfg.BaseURL, cfg.Token)
+		client := newClient()
 		s, err := api.GetService(client, args[0])
 		if err != nil {
 			return err
@@ -99,7 +99,7 @@ var servicesCreateCmd = &cobra.Command{
 			return fmt.Errorf("--project, --name, and --repo are required")
 		}
 
-		client := api.New(cfg.BaseURL, cfg.Token)
+		client := newClient()
 		svc, err := api.CreateService(client, projectID, api.CreateServiceRequest{
 			Name:    name,
 			RepoURL: repo,
@@ -120,7 +120,7 @@ var servicesDeleteCmd = &cobra.Command{
 	Short: "Delete a service",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := api.New(cfg.BaseURL, cfg.Token)
+		client := newClient()
 		if err := api.DeleteService(client, args[0]); err != nil {
 			return err
 		}

@@ -31,7 +31,7 @@ func runLogs(cmd *cobra.Command, args []string) error {
 	buildDeploymentID, _ := cmd.Flags().GetString("build")
 	tail, _ := cmd.Flags().GetInt("tail")
 
-	client := api.New(cfg.BaseURL, cfg.Token)
+	client := newClient()
 
 	// Set up signal handling.
 	sigCh := make(chan os.Signal, 1)
