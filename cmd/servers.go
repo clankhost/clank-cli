@@ -65,10 +65,16 @@ var serversAddCmd = &cobra.Command{
 		}
 
 		fmt.Printf("Server created (id: %s)\n\n", output.ShortID(token.ServerID))
-		fmt.Println("Run this command on the target server to enroll the agent:")
+		fmt.Println("Run this command on the target server to install the agent:")
 		fmt.Println()
 		fmt.Printf("  %s\n", token.InstallCommand)
 		fmt.Println()
+		if token.ManualEnrollCommand != "" {
+			fmt.Println("Or if the agent binary is already installed:")
+			fmt.Println()
+			fmt.Printf("  %s\n", token.ManualEnrollCommand)
+			fmt.Println()
+		}
 		fmt.Printf("Token expires: %s\n", output.TimeSince(token.ExpiresAt))
 		fmt.Println("This token is shown once and cannot be retrieved again.")
 		return nil

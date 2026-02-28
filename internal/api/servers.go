@@ -23,10 +23,11 @@ type Server struct {
 
 // EnrollmentToken is the response from creating a server or regenerating a token.
 type EnrollmentToken struct {
-	ServerID        string `json:"server_id"`
-	EnrollmentToken string `json:"enrollment_token"`
-	ExpiresAt       string `json:"expires_at"`
-	InstallCommand  string `json:"install_command"`
+	ServerID            string `json:"server_id"`
+	EnrollmentToken     string `json:"enrollment_token"`
+	ExpiresAt           string `json:"expires_at"`
+	InstallCommand      string `json:"install_command"`
+	ManualEnrollCommand string `json:"manual_enroll_command"`
 }
 
 // CreateServerRequest is the body for POST /api/servers/.
