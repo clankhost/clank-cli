@@ -24,7 +24,7 @@ func TestClientSendsCookieHeader(t *testing.T) {
 		t.Fatalf("GET failed: %v", err)
 	}
 
-	expected := "access_token=test-jwt-token"
+	expected := "clank_session=test-jwt-token"
 	if receivedCookie != expected {
 		t.Errorf("expected Cookie header %q, got %q", expected, receivedCookie)
 	}
@@ -129,7 +129,7 @@ func TestLoginExtractsCookie(t *testing.T) {
 		}
 
 		http.SetCookie(w, &http.Cookie{
-			Name:     "access_token",
+			Name:     "clank_session",
 			Value:    "fake-jwt-token-12345",
 			HttpOnly: true,
 			Path:     "/",

@@ -29,7 +29,7 @@ type UserResponse struct {
 	Email string `json:"email"`
 }
 
-// Login authenticates and returns the login response plus the JWT token
+// Login authenticates and returns the login response plus the session token
 // extracted from the Set-Cookie header. The token is NOT stored — the caller
 // is responsible for persisting it via config.SaveToken().
 func Login(c *Client, email, password string) (*LoginResponse, string, error) {
@@ -66,16 +66,16 @@ func Login(c *Client, email, password string) (*LoginResponse, string, error) {
 		return nil, "", fmt.Errorf("decoding login response: %w", err)
 	}
 
-	// Extract JWT from Set-Cookie header.
+	// Extract session token from Set-Cookie header.
 	token := ""
 	for _, cookie := range resp.Cookies() {
-		if cookie.Name == "access_token" {
+		if cookie.Name == "clank_session" {
 			token = cookie.Value
 			break
 		}
 	}
 	if token == "" {
-		return nil, "", fmt.Errorf("login succeeded but no access_token cookie in response")
+		return nil, "", fmt.Errorf("login succeeded but no clank_session cookie in response")
 	}
 
 	return &loginResp, token, nil

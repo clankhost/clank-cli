@@ -57,12 +57,12 @@ func (c *Client) do(method, path string, body any, result any) error {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	// Auth: API keys use Authorization header; JWTs use cookie.
+	// Auth: API keys use Authorization header; sessions use cookie.
 	if c.Token != "" {
 		if strings.HasPrefix(c.Token, "clank_") {
 			req.Header.Set("Authorization", "Bearer "+c.Token)
 		} else {
-			req.Header.Set("Cookie", "access_token="+c.Token)
+			req.Header.Set("Cookie", "clank_session="+c.Token)
 		}
 	}
 
@@ -146,7 +146,7 @@ func (c *Client) SSEStream(path string) (io.ReadCloser, error) {
 		if strings.HasPrefix(c.Token, "clank_") {
 			req.Header.Set("Authorization", "Bearer "+c.Token)
 		} else {
-			req.Header.Set("Cookie", "access_token="+c.Token)
+			req.Header.Set("Cookie", "clank_session="+c.Token)
 		}
 	}
 
