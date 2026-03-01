@@ -43,6 +43,7 @@ func Login(c *Client, email, password string) (*LoginResponse, string, error) {
 		return nil, "", fmt.Errorf("creating login request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Requested-With", "XMLHttpRequest")
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {

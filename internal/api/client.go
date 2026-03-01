@@ -56,6 +56,7 @@ func (c *Client) do(method, path string, body any, result any) error {
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	req.Header.Set("X-Requested-With", "XMLHttpRequest")
 
 	// Auth: API keys use Authorization header; sessions use cookie.
 	if c.Token != "" {
