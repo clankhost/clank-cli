@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
-
-	"github.com/spf13/viper"
 )
 
 func TestLoadDefaults(t *testing.T) {
@@ -68,12 +66,9 @@ func TestFilePermissions(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.yaml")
 
-	v := viper.New()
-	v.Set("base_url", "https://test.example.com")
-	v.Set("token", "secret")
-	v.SetConfigFile(cfgPath)
-	v.SetConfigType("yaml")
-	if err := v.SafeWriteConfig(); err != nil {
+	// Write config using direct file write (avoids viper version quirks).
+	data := []byte("base_url: https://test.example.com\ntoken: secret\n")
+	if err := os.WriteFile(cfgPath, data, 0644); err != nil {
 		t.Fatalf("writing config: %v", err)
 	}
 
