@@ -14,7 +14,7 @@ import (
 type Client struct {
 	BaseURL    string
 	Token      string
-	OrgID      string
+	TeamID     string
 	HTTPClient *http.Client
 }
 
@@ -67,8 +67,8 @@ func (c *Client) do(method, path string, body any, result any) error {
 		}
 	}
 
-	if c.OrgID != "" {
-		req.Header.Set("X-Org-Id", c.OrgID)
+	if c.TeamID != "" {
+		req.Header.Set("X-Team-Id", c.TeamID)
 	}
 
 	resp, err := c.HTTPClient.Do(req)
@@ -151,8 +151,8 @@ func (c *Client) SSEStream(path string) (io.ReadCloser, error) {
 		}
 	}
 
-	if c.OrgID != "" {
-		req.Header.Set("X-Org-Id", c.OrgID)
+	if c.TeamID != "" {
+		req.Header.Set("X-Team-Id", c.TeamID)
 	}
 
 	// No timeout for SSE — streams are long-lived.

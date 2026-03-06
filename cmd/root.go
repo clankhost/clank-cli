@@ -69,10 +69,10 @@ func needsBaseURL(cmd *cobra.Command) bool {
 	return true
 }
 
-// newClient returns an API client configured with org context.
+// newClient returns an API client configured with team context.
 func newClient() *api.Client {
 	client := api.New(cfg.BaseURL, cfg.Token)
-	client.OrgID = cfg.OrgID
+	client.TeamID = cfg.TeamID
 	return client
 }
 
