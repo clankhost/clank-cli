@@ -23,6 +23,10 @@ var serversListCmd = &cobra.Command{
 			return err
 		}
 
+		if output.IsJSON() {
+			return output.JSON(servers)
+		}
+
 		if len(servers) == 0 {
 			fmt.Println("No servers found.")
 			return nil

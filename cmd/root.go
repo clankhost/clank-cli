@@ -6,6 +6,7 @@ import (
 
 	"github.com/anaremore/clank/apps/cli/internal/api"
 	"github.com/anaremore/clank/apps/cli/internal/config"
+	"github.com/anaremore/clank/apps/cli/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +21,7 @@ var rootCmd = &cobra.Command{
 	Long:  "Deploy and manage containerized apps on Clank from your terminal.",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Skip config loading for commands that don't need it.
-		if cmd.Name() == "version" {
+		if cmd.Name() == "version" || cmd.Name() == "completion" {
 			return nil
 		}
 
@@ -78,4 +79,5 @@ func newClient() *api.Client {
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default ~/.config/clank/config.yaml)")
+	rootCmd.PersistentFlags().StringVarP(&output.Format, "output", "o", "", "output format: json or table (default table)")
 }

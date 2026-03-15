@@ -28,6 +28,10 @@ var servicesListCmd = &cobra.Command{
 			return err
 		}
 
+		if output.IsJSON() {
+			return output.JSON(services)
+		}
+
 		if len(services) == 0 {
 			fmt.Println("No services found.")
 			return nil
@@ -64,6 +68,10 @@ var servicesInfoCmd = &cobra.Command{
 		s, err := api.GetService(client, args[0])
 		if err != nil {
 			return err
+		}
+
+		if output.IsJSON() {
+			return output.JSON(s)
 		}
 
 		fmt.Printf("Name:        %s\n", s.Name)

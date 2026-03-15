@@ -23,6 +23,10 @@ var projectsListCmd = &cobra.Command{
 			return err
 		}
 
+		if output.IsJSON() {
+			return output.JSON(projects)
+		}
+
 		if len(projects) == 0 {
 			fmt.Println("No projects found.")
 			return nil

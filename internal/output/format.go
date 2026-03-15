@@ -1,12 +1,16 @@
 package output
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 	"text/tabwriter"
 	"time"
 )
+
+// Format is the output format (table or json).
+var Format string
 
 // Table prints a formatted table to stdout.
 func Table(headers []string, rows [][]string) {
@@ -91,4 +95,16 @@ func ShortID(id string) string {
 		return id[:8]
 	}
 	return id
+}
+
+// IsJSON returns true if the output format is JSON.
+func IsJSON() bool {
+	return Format == "json"
+}
+
+// JSON writes data as formatted JSON to stdout.
+func JSON(data any) error {
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(data)
 }
