@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -63,10 +66,31 @@ PowerShell:
 		case "fish":
 			return rootCmd.GenFishCompletion(os.Stdout, true)
 		case "powershell":
-			return rootCmd.GenPowerShellCompletionWithDesc(os.Stdout)
+			return genPowerShellNativeCompletion(rootCmd, os.Stdout)
 		}
 		return nil
 	},
+}
+
+// genPowerShellNativeCompletion generates PowerShell completion with the -Native
+// flag on Register-ArgumentCompleter. Cobra omits -Native, which means completions
+// only work for PowerShell cmdlets/functions, not external executables like clank.exe.
+func genPowerShellNativeCompletion(cmd *cobra.Command, w io.Writer) error {
+	var buf bytes.Buffer
+	if err := cmd.GenPowerShellCompletionWithDesc(&buf); err != nil {
+		return err
+	}
+
+	// Patch: add -Native flag so it works for external executables
+	script := strings.Replace(
+		buf.String(),
+		"Register-ArgumentCompleter -CommandName",
+		"Register-ArgumentCompleter -Native -CommandName",
+		1,
+	)
+
+	_, err := io.WriteString(w, script)
+	return err
 }
 
 func init() {
