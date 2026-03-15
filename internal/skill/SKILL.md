@@ -1,11 +1,11 @@
 ---
 name: clank
-description: Manage Clank platform — projects, services, deploys, env vars, endpoints, servers, and more. Uses the CLI for supported operations and API calls for advanced features.
+description: Manage Clank platform — projects, services, deploys, env vars, endpoints, domains, backups, servers, and more. All operations use the CLI directly.
 ---
 
 # /clank
 
-Manage the Clank PaaS platform from Claude Code. Execute operations through the `clank` CLI and direct API calls.
+Manage the Clank PaaS platform from Claude Code. All operations use the `clank` CLI.
 
 ## Usage
 
@@ -24,12 +24,6 @@ Examples:
 
 1. **Verify auth**: Run `clank whoami` to confirm authentication
 2. If unauthorized, run `clank login` to authenticate via device code flow
-3. For API calls, extract credentials:
-   ```bash
-   BASE=$(clank config get base_url)
-   TOKEN=$(clank config get token)
-   TEAM=$(clank config get team_id)
-   ```
 
 ## CLI Commands Reference
 
@@ -65,6 +59,47 @@ clank logs <service-id> --tail 100           # Last 100 lines
 clank logs <service-id> --build <deploy-id>  # Build logs for a deployment
 ```
 
+### Environment Variables
+```bash
+clank env list <service-id>                  # List env vars (secrets masked)
+clank env set <service-id> KEY=VALUE         # Set a variable
+clank env set <service-id> KEY=VALUE --secret # Set as secret
+clank env set <service-id> K1=V1 K2=V2       # Set multiple at once
+clank env set <service-id> -f .env           # Load from .env file
+clank env reveal <service-id> KEY            # Show secret value
+clank env delete <service-id> KEY            # Delete a variable
+```
+
+### Service Control
+```bash
+clank restart <service-id>                   # Restart the container
+clank stop <service-id>                      # Stop the container
+clank start <service-id>                     # Start a stopped container
+```
+
+### Custom Domains
+```bash
+clank domains list <service-id>              # List domains
+clank domains add <service-id> example.com   # Add a domain
+clank domains add <service-id> example.com --primary  # Add as primary
+clank domains remove <domain-id>             # Remove a domain
+clank domains recheck <domain-id>            # Re-check DNS verification
+```
+
+### Deployment History
+```bash
+clank deployments list <service-id>          # List all deployments (alias: deps)
+clank deployments info <deployment-id>       # Deployment details
+clank deployments events <deployment-id>     # Lifecycle events
+```
+
+### Backups
+```bash
+clank backups list <service-id>              # List backups
+clank backups create <service-id>            # Create a backup
+clank backups delete <service-id> <backup-id> # Delete a backup
+```
+
 ### Endpoints
 ```bash
 clank endpoints <service-id>                 # List endpoints (alias: clank ep)
@@ -98,11 +133,12 @@ clank version                                # CLI version
 clank update                                 # Self-update CLI
 clank config get <key>                       # Get config value (base_url, token, team_id)
 clank config set <key> <value>               # Set config value
+clank skill install                          # Install /clank Claude Code skill
 ```
 
-## API Calls (Features Not Yet in CLI)
+## API Calls (Advanced)
 
-For operations the CLI doesn't support, use `curl` with auth from the CLI config.
+For operations the CLI doesn't cover yet, use `curl` with auth from the CLI config.
 
 ### Auth Header Pattern
 
@@ -111,154 +147,37 @@ BASE=$(clank config get base_url)
 TOKEN=$(clank config get token)
 TEAM=$(clank config get team_id)
 
-# GET request
 curl -s -H "Cookie: clank_session=$TOKEN" -H "X-Team-Id: $TEAM" \
   -H "X-Requested-With: XMLHttpRequest" "$BASE/api/..."
-
-# POST with JSON body
-curl -s -X POST -H "Cookie: clank_session=$TOKEN" -H "X-Team-Id: $TEAM" \
-  -H "X-Requested-With: XMLHttpRequest" -H "Content-Type: application/json" \
-  -d '{"key": "value"}' "$BASE/api/..."
 ```
 
 If TOKEN starts with `clank_` (API key), use `Authorization: Bearer $TOKEN` instead of Cookie.
 
-### Environment Variables
-
+### Push Local Image to Registry
 ```bash
-# List env vars for a service
-curl -s -H "Cookie: clank_session=$TOKEN" -H "X-Team-Id: $TEAM" \
-  -H "X-Requested-With: XMLHttpRequest" \
-  "$BASE/api/services/{service_id}/env-vars"
-
-# Set a single env var
-curl -s -X POST -H "Cookie: clank_session=$TOKEN" -H "X-Team-Id: $TEAM" \
-  -H "X-Requested-With: XMLHttpRequest" -H "Content-Type: application/json" \
-  -d '{"key": "DATABASE_URL", "value": "postgres://...", "is_secret": true}' \
-  "$BASE/api/services/{service_id}/env-vars"
-
-# Bulk set env vars
-curl -s -X POST -H "Cookie: clank_session=$TOKEN" -H "X-Team-Id: $TEAM" \
-  -H "X-Requested-With: XMLHttpRequest" -H "Content-Type: application/json" \
-  -d '{"vars": [{"key": "K1", "value": "V1"}, {"key": "K2", "value": "V2", "is_secret": true}]}' \
-  "$BASE/api/services/{service_id}/env-vars/bulk"
-
-# Reveal a secret env var value
-curl -s -H "Cookie: clank_session=$TOKEN" -H "X-Team-Id: $TEAM" \
-  -H "X-Requested-With: XMLHttpRequest" \
-  "$BASE/api/services/env-vars/{var_id}/reveal"
-
-# Delete an env var
-curl -s -X DELETE -H "Cookie: clank_session=$TOKEN" -H "X-Team-Id: $TEAM" \
-  -H "X-Requested-With: XMLHttpRequest" \
-  "$BASE/api/services/env-vars/{var_id}"
-```
-
-### Service Control (Restart / Stop / Start)
-
-```bash
-# Restart a service
-curl -s -X POST -H "Cookie: clank_session=$TOKEN" -H "X-Team-Id: $TEAM" \
-  -H "X-Requested-With: XMLHttpRequest" \
-  "$BASE/api/services/{service_id}/restart"
-
-# Stop a service
-curl -s -X POST -H "Cookie: clank_session=$TOKEN" -H "X-Team-Id: $TEAM" \
-  -H "X-Requested-With: XMLHttpRequest" \
-  "$BASE/api/services/{service_id}/stop"
-
-# Start a service
-curl -s -X POST -H "Cookie: clank_session=$TOKEN" -H "X-Team-Id: $TEAM" \
-  -H "X-Requested-With: XMLHttpRequest" \
-  "$BASE/api/services/{service_id}/start"
-```
-
-### Domains
-
-```bash
-# List domains for a service
-curl -s -H "Cookie: clank_session=$TOKEN" -H "X-Team-Id: $TEAM" \
-  -H "X-Requested-With: XMLHttpRequest" \
-  "$BASE/api/services/{service_id}/domains"
-
-# Add a domain
-curl -s -X POST -H "Cookie: clank_session=$TOKEN" -H "X-Team-Id: $TEAM" \
-  -H "X-Requested-With: XMLHttpRequest" -H "Content-Type: application/json" \
-  -d '{"domain": "app.example.com", "is_primary": true}' \
-  "$BASE/api/services/{service_id}/domains"
-
-# Recheck domain DNS
-curl -s -X POST -H "Cookie: clank_session=$TOKEN" -H "X-Team-Id: $TEAM" \
-  -H "X-Requested-With: XMLHttpRequest" \
-  "$BASE/api/services/domains/{domain_id}/recheck"
-
-# Delete a domain
-curl -s -X DELETE -H "Cookie: clank_session=$TOKEN" -H "X-Team-Id: $TEAM" \
-  -H "X-Requested-With: XMLHttpRequest" \
-  "$BASE/api/services/domains/{domain_id}"
-```
-
-### Deployment History
-
-```bash
-# List deployments for a service
-curl -s -H "Cookie: clank_session=$TOKEN" -H "X-Team-Id: $TEAM" \
-  -H "X-Requested-With: XMLHttpRequest" \
-  "$BASE/api/services/{service_id}/deployments"
-
-# Get deployment details
-curl -s -H "Cookie: clank_session=$TOKEN" -H "X-Team-Id: $TEAM" \
-  -H "X-Requested-With: XMLHttpRequest" \
-  "$BASE/api/deployments/{deployment_id}"
-
-# Get deployment events
-curl -s -H "Cookie: clank_session=$TOKEN" -H "X-Team-Id: $TEAM" \
-  -H "X-Requested-With: XMLHttpRequest" \
-  "$BASE/api/deployments/{deployment_id}/events"
-
-# Push local image to registry
 curl -s -X POST -H "Cookie: clank_session=$TOKEN" -H "X-Team-Id: $TEAM" \
   -H "X-Requested-With: XMLHttpRequest" \
   "$BASE/api/deployments/{deployment_id}/push-to-registry"
 ```
 
-### Backups
-
-```bash
-# Create a backup
-curl -s -X POST -H "Cookie: clank_session=$TOKEN" -H "X-Team-Id: $TEAM" \
-  -H "X-Requested-With: XMLHttpRequest" \
-  "$BASE/api/services/{service_id}/backups"
-
-# List backups
-curl -s -H "Cookie: clank_session=$TOKEN" -H "X-Team-Id: $TEAM" \
-  -H "X-Requested-With: XMLHttpRequest" \
-  "$BASE/api/services/{service_id}/backups"
-
-# Delete a backup
-curl -s -X DELETE -H "Cookie: clank_session=$TOKEN" -H "X-Team-Id: $TEAM" \
-  -H "X-Requested-With: XMLHttpRequest" \
-  "$BASE/api/services/{service_id}/backups/{backup_id}"
-```
-
 ## Compound Workflows
 
-For multi-step operations, chain CLI + API calls:
+For multi-step operations, chain CLI commands:
 
 ### Set Up New Service
 1. `clank services create --project <id> --name "web" --repo "user/repo" --port 3000 -o json` → get service_id
-2. Set env vars via bulk API call
+2. `clank env set <service-id> DB_URL=postgres://... API_KEY=sk-123 --secret`
 3. `clank deploy <service-id>` → deploy and stream logs
 
 ### Clone Env Vars Between Services
-1. List source env vars via API → get key/value pairs
-2. Reveal secrets via API → get plaintext values
-3. Bulk set on target service via API
+1. `clank env list <source-service-id> -o json` → get key/value pairs
+2. For each secret: `clank env reveal <source-service-id> KEY`
+3. `clank env set <target-service-id> KEY1=VAL1 KEY2=VAL2`
 
 ### Deploy and Monitor
-1. `clank deploy <service-id> --no-follow` → get deployment_id
-2. Poll deployment status via API until terminal state
-3. If failed, fetch deployment events for error details
+1. `clank deploy <service-id> --no-follow -o json` → get deployment_id
+2. `clank deployments info <deployment-id>` → check status
+3. If failed: `clank deployments events <deployment-id>` → see what went wrong
 
 ## Critical Rules
 
@@ -266,7 +185,5 @@ For multi-step operations, chain CLI + API calls:
 - **Use `-o json`** when piping CLI output into another command or parsing it
 - **Use table format** (default) when showing results to the user
 - **Never expose secret env var values** in output unless the user explicitly asks to reveal them
-- **Include `X-Requested-With: XMLHttpRequest`** on all API calls — the API requires it
-- **Include `X-Team-Id`** header on all API calls — without it, requests fail
 - **Service IDs are UUIDs** — when the user refers to a service by name, first list services to find the ID
 - **Agent servers** connect outbound via gRPC — if a server shows offline, the agent may have lost connection

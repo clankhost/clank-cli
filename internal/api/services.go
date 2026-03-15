@@ -91,12 +91,16 @@ func TriggerRollback(c *Client, serviceID, targetDeploymentID string) (*Deployme
 
 // Domain represents a service domain.
 type Domain struct {
-	ID          string `json:"id"`
-	ServiceID   string `json:"service_id"`
-	Domain      string `json:"domain"`
-	IsPrimary   bool   `json:"is_primary"`
-	IsGenerated bool   `json:"is_generated"`
-	CreatedAt   string `json:"created_at"`
+	ID                string  `json:"id"`
+	ServiceID         string  `json:"service_id"`
+	Domain            string  `json:"domain"`
+	IsPrimary         bool    `json:"is_primary"`
+	IsGenerated       bool    `json:"is_generated"`
+	Status            string  `json:"status"`
+	VerificationToken *string `json:"verification_token"`
+	TxtRecord         *string `json:"txt_record"`
+	ErrorMessage      *string `json:"error_message"`
+	CreatedAt         string  `json:"created_at"`
 }
 
 // ListDomains returns all domains for a service.
@@ -106,4 +110,65 @@ func ListDomains(c *Client, serviceID string) ([]Domain, error) {
 		return nil, err
 	}
 	return domains, nil
+}
+
+// AddDomainRequest is the body for adding a custom domain.
+type AddDomainRequest struct {
+	Domain    string `json:"domain"`
+	IsPrimary bool   `json:"is_primary,omitempty"`
+}
+
+// AddDomain adds a custom domain to a service.
+func AddDomain(c *Client, serviceID string, req AddDomainRequest) (*Domain, error) {
+	var domain Domain
+	if err := c.post(fmt.Sprintf("/api/services/%s/domains", serviceID), req, &domain); err != nil {
+		return nil, err
+	}
+	return &domain, nil
+}
+
+// RemoveDomain deletes a domain.
+func RemoveDomain(c *Client, domainID string) error {
+	return c.delete(fmt.Sprintf("/api/domains/%s", domainID))
+}
+
+// RecheckDomain triggers DNS re-verification for a domain.
+func RecheckDomain(c *Client, domainID string) (*Domain, error) {
+	var domain Domain
+	if err := c.post(fmt.Sprintf("/api/domains/%s/recheck", domainID), nil, &domain); err != nil {
+		return nil, err
+	}
+	return &domain, nil
+}
+
+// ContainerControlResponse is the response from restart/stop/start.
+type ContainerControlResponse struct {
+	Status string `json:"status"`
+}
+
+// RestartService restarts a service's container.
+func RestartService(c *Client, serviceID string) (*ContainerControlResponse, error) {
+	var resp ContainerControlResponse
+	if err := c.post(fmt.Sprintf("/api/services/%s/restart", serviceID), nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// StopService stops a service's container.
+func StopService(c *Client, serviceID string) (*ContainerControlResponse, error) {
+	var resp ContainerControlResponse
+	if err := c.post(fmt.Sprintf("/api/services/%s/stop", serviceID), nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// StartService starts a service's container.
+func StartService(c *Client, serviceID string) (*ContainerControlResponse, error) {
+	var resp ContainerControlResponse
+	if err := c.post(fmt.Sprintf("/api/services/%s/start", serviceID), nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
 }
