@@ -21,7 +21,7 @@ var rootCmd = &cobra.Command{
 	Long:  "Deploy and manage containerized apps on Clank from your terminal.",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Skip config loading for commands that don't need it.
-		if cmd.Name() == "version" || cmd.Name() == "completion" {
+		if cmd.Name() == "version" || cmd.Name() == "completion" || cmd.Name() == "__complete" || cmd.Name() == "__completeNoDesc" {
 			return nil
 		}
 

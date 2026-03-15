@@ -81,11 +81,29 @@ func genPowerShellNativeCompletion(cmd *cobra.Command, w io.Writer) error {
 		return err
 	}
 
-	// Patch: add -Native flag so it works for external executables
-	script := strings.Replace(
-		buf.String(),
+	script := buf.String()
+
+	// Patch 1: add -Native flag so it works for external executables (.exe).
+	// Cobra omits -Native, which only matches PowerShell cmdlets/functions.
+	script = strings.Replace(script,
 		"Register-ArgumentCompleter -CommandName",
 		"Register-ArgumentCompleter -Native -CommandName",
+		1,
+	)
+
+	// Patch 2: fix empty argument passing for PowerShell 5.1.
+	// PS 5.1 strips empty strings ("") when passed to native commands via
+	// Invoke-Expression. Cobra uses `"`" (backtick-escaped quotes) which
+	// also gets stripped. Wrapping in single quotes ('`"`"') makes
+	// Invoke-Expression pass the literal "" to the native command.
+	//
+	// Old:  + ' `"`"'       → Invoke-Expression sees "" → stripped in PS 5.1
+	// New:  + " '`"`"'"     → Invoke-Expression sees '""' → passed as literal
+	//
+	// Go backtick = PS backtick = 0x60, must use regular strings here.
+	script = strings.Replace(script,
+		"$RequestComp=\"$RequestComp\" + ' \x60\"\x60\"'",
+		"$RequestComp=\"$RequestComp\" + \" '\x60\"\x60\"'\"",
 		1,
 	)
 
