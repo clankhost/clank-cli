@@ -18,9 +18,9 @@ builds:
         goarch: arm64
     ldflags:
       - -s -w
-      - -X github.com/anaremore/clank/apps/cli/cmd.Version={{.Version}}
-      - -X github.com/anaremore/clank/apps/cli/cmd.Commit={{.ShortCommit}}
-      - -X github.com/anaremore/clank/apps/cli/cmd.Date={{.Date}}
+      - -X github.com/clankhost/clank-cli/cmd.Version={{.Version}}
+      - -X github.com/clankhost/clank-cli/cmd.Commit={{.ShortCommit}}
+      - -X github.com/clankhost/clank-cli/cmd.Date={{.Date}}
 
 archives:
   - format: tar.gz

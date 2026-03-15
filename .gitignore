@@ -1,0 +1,8 @@
+# Build artifacts
+clank
+clank.exe
+clank.exe.old
+*.exe
+
+# Local config
+clank.yaml

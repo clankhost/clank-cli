@@ -8,9 +8,9 @@ import (
 	"os/signal"
 	"sync"
 
-	"github.com/anaremore/clank/apps/cli/internal/api"
-	"github.com/anaremore/clank/apps/cli/internal/output"
-	"github.com/anaremore/clank/apps/cli/internal/sse"
+	"github.com/clankhost/clank-cli/internal/api"
+	"github.com/clankhost/clank-cli/internal/output"
+	"github.com/clankhost/clank-cli/internal/sse"
 	"github.com/spf13/cobra"
 )
 

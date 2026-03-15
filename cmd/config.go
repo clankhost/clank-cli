@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/anaremore/clank/apps/cli/internal/config"
+	"github.com/clankhost/clank-cli/internal/config"
 	"github.com/spf13/cobra"
 )
 

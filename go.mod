@@ -1,4 +1,4 @@
-module github.com/anaremore/clank/apps/cli
+module github.com/clankhost/clank-cli
 
 go 1.23
 

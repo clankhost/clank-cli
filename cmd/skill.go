@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/anaremore/clank/apps/cli/internal/skill"
+	"github.com/clankhost/clank-cli/internal/skill"
 	"github.com/spf13/cobra"
 )
 

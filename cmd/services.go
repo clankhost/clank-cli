@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/anaremore/clank/apps/cli/internal/api"
-	"github.com/anaremore/clank/apps/cli/internal/output"
+	"github.com/clankhost/clank-cli/internal/api"
+	"github.com/clankhost/clank-cli/internal/output"
 	"github.com/spf13/cobra"
 )
 

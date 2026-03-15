@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/anaremore/clank/apps/cli/internal/api"
+	"github.com/clankhost/clank-cli/internal/api"
 )
 
 func TestParseEnvFile(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/anaremore/clank/apps/cli/internal/initdetect"
+	"github.com/clankhost/clank-cli/internal/initdetect"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )

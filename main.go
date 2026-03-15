@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/anaremore/clank/apps/cli/cmd"
+	"github.com/clankhost/clank-cli/cmd"
 )
 
 func main() {

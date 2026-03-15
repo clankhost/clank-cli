@@ -8,8 +8,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/anaremore/clank/apps/cli/internal/api"
-	"github.com/anaremore/clank/apps/cli/internal/config"
+	"github.com/clankhost/clank-cli/internal/api"
+	"github.com/clankhost/clank-cli/internal/config"
 	"github.com/pkg/browser"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
