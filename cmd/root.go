@@ -21,7 +21,7 @@ var rootCmd = &cobra.Command{
 	Long:  "Deploy and manage containerized apps on Clank from your terminal.",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Skip config loading for commands that don't need it.
-		if cmd.Name() == "version" || cmd.Name() == "completion" || cmd.Name() == "__complete" || cmd.Name() == "__completeNoDesc" {
+		if skipConfigLoad(cmd) {
 			return nil
 		}
 
@@ -54,6 +54,20 @@ func Execute() error {
 	return nil
 }
 
+// skipConfigLoad returns true if the command doesn't need any config.
+func skipConfigLoad(cmd *cobra.Command) bool {
+	switch cmd.Name() {
+	case "version", "completion", "__complete", "__completeNoDesc":
+		return true
+	}
+	for p := cmd; p != nil; p = p.Parent() {
+		if p.Name() == "skill" {
+			return true
+		}
+	}
+	return false
+}
+
 // needsBaseURL returns true if the command requires a configured platform URL.
 func needsBaseURL(cmd *cobra.Command) bool {
 	// Commands that work without a base URL.
@@ -61,9 +75,9 @@ func needsBaseURL(cmd *cobra.Command) bool {
 	case "init":
 		return false
 	}
-	// All config subcommands work without a base URL.
+	// All config and skill subcommands work without a base URL.
 	for p := cmd; p != nil; p = p.Parent() {
-		if p.Name() == "config" {
+		if p.Name() == "config" || p.Name() == "skill" {
 			return false
 		}
 	}
