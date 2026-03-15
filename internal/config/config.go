@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	DefaultBaseURL = ""
+	DefaultBaseURL = "https://clank.host"
 	appName        = "clank"
 )
 

@@ -14,8 +14,8 @@ func TestLoadDefaults(t *testing.T) {
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	if cfg.BaseURL != "" {
-		t.Errorf("expected empty BaseURL, got %q", cfg.BaseURL)
+	if cfg.BaseURL != DefaultBaseURL {
+		t.Errorf("expected default BaseURL %q, got %q", DefaultBaseURL, cfg.BaseURL)
 	}
 	if cfg.Token != "" {
 		t.Errorf("expected empty token, got %q", cfg.Token)
