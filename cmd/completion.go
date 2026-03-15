@@ -1,11 +1,9 @@
 package cmd
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -66,47 +64,89 @@ PowerShell:
 		case "fish":
 			return rootCmd.GenFishCompletion(os.Stdout, true)
 		case "powershell":
-			return genPowerShellNativeCompletion(rootCmd, os.Stdout)
+			return genPowerShellCompletion(os.Stdout)
 		}
 		return nil
 	},
 }
 
-// genPowerShellNativeCompletion generates PowerShell completion with the -Native
-// flag on Register-ArgumentCompleter. Cobra omits -Native, which means completions
-// only work for PowerShell cmdlets/functions, not external executables like clank.exe.
-func genPowerShellNativeCompletion(cmd *cobra.Command, w io.Writer) error {
-	var buf bytes.Buffer
-	if err := cmd.GenPowerShellCompletionWithDesc(&buf); err != nil {
-		return err
-	}
+// genPowerShellCompletion writes a custom PowerShell completion script.
+//
+// Cobra's built-in PowerShell completion has multiple bugs on PS 5.1:
+//  1. Missing -Native on Register-ArgumentCompleter (only matches cmdlets)
+//  2. Empty string args get stripped via Invoke-Expression (breaks __complete)
+//  3. Invoke-Expression output gets intercepted by the completer pipeline
+//
+// This custom script uses System.Diagnostics.Process to call the binary,
+// completely bypassing PS's output pipeline interference.
+func genPowerShellCompletion(w io.Writer) error {
+	// Note: Go raw strings (backtick-delimited) cannot contain backticks.
+	// PS backtick (`) is U+0060. We avoid using PS backticks entirely
+	// by using [char] codes and .NET APIs instead.
+	const script = `# PowerShell completion for clank
+Register-ArgumentCompleter -Native -CommandName 'clank' -ScriptBlock {
+    param($wordToComplete, $commandAst, $cursorPosition)
 
-	script := buf.String()
+    # Parse command elements (force array to avoid single-item unwrapping)
+    $elements = @($commandAst.CommandElements | ForEach-Object { $_.ToString() })
+    $prog = $elements[0]
 
-	// Patch 1: add -Native flag so it works for external executables (.exe).
-	// Cobra omits -Native, which only matches PowerShell cmdlets/functions.
-	script = strings.Replace(script,
-		"Register-ArgumentCompleter -CommandName",
-		"Register-ArgumentCompleter -Native -CommandName",
-		1,
-	)
+    # Resolve binary path from PATH
+    $exePath = $null
+    foreach ($dir in $env:Path -split ';') {
+        if (-not $dir) { continue }
+        $candidate = Join-Path $dir "$prog.exe"
+        if (Test-Path $candidate) { $exePath = $candidate; break }
+    }
+    if (-not $exePath) { return }
 
-	// Patch 2: fix empty argument passing for PowerShell 5.1.
-	// PS 5.1 strips empty strings ("") when passed to native commands via
-	// Invoke-Expression. Cobra uses `"`" (backtick-escaped quotes) which
-	// also gets stripped. Wrapping in single quotes ('`"`"') makes
-	// Invoke-Expression pass the literal "" to the native command.
-	//
-	// Old:  + ' `"`"'       → Invoke-Expression sees "" → stripped in PS 5.1
-	// New:  + " '`"`"'"     → Invoke-Expression sees '""' → passed as literal
-	//
-	// Go backtick = PS backtick = 0x60, must use regular strings here.
-	script = strings.Replace(script,
-		"$RequestComp=\"$RequestComp\" + ' \x60\"\x60\"'",
-		"$RequestComp=\"$RequestComp\" + \" '\x60\"\x60\"'\"",
-		1,
-	)
+    # Build __complete arguments
+    $rest = @()
+    if ($elements.Length -gt 1) { $rest = @($elements[1..($elements.Length - 1)]) }
+    $argParts = @('__complete') + $rest
+    if ($wordToComplete -eq '') { $argParts += '""' }
+    $argStr = $argParts -join ' '
 
+    # Use System.Diagnostics.Process to capture output without PS pipeline
+    # interference. Invoke-Expression and & operator output gets intercepted
+    # by the completer scriptblock context in PS 5.1.
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $exePath
+    $psi.Arguments = $argStr
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.EnvironmentVariables['CLANK_ACTIVE_HELP'] = '0'
+
+    try {
+        $proc = [System.Diagnostics.Process]::Start($psi)
+        $stdout = $proc.StandardOutput.ReadToEnd()
+        $proc.WaitForExit()
+    } catch { return }
+
+    $lines = @($stdout -split [char]10 | ForEach-Object { $_.TrimEnd([char]13) } | Where-Object { $_ -ne '' })
+    if ($lines.Count -eq 0) { return }
+
+    # Last line is the directive (e.g., ":4")
+    $last = $lines[-1]
+    if ($last -match '^:\d+$') {
+        if ($lines.Count -gt 1) { $lines = @($lines[0..($lines.Count - 2)]) }
+        else { return }
+    }
+
+    foreach ($line in $lines) {
+        $tab = $line.IndexOf([char]9)
+        if ($tab -ge 0) {
+            $text = $line.Substring(0, $tab)
+            $desc = $line.Substring($tab + 1)
+        } else {
+            $text = $line; $desc = $line
+        }
+        [System.Management.Automation.CompletionResult]::new($text, $text, 'ParameterValue', $desc)
+    }
+}
+`
 	_, err := io.WriteString(w, script)
 	return err
 }
