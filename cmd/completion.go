@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -42,7 +43,17 @@ PowerShell:
 `,
 	DisableFlagsInUseLine: true,
 	ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
-	Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+	Args: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			cmd.Help()
+			return fmt.Errorf("specify a shell: bash, zsh, fish, or powershell")
+		}
+		return cobra.OnlyValidArgs(cmd, args)
+	},
+	Example: `  clank completion bash
+  clank completion zsh
+  clank completion fish
+  clank completion powershell`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		switch args[0] {
 		case "bash":
