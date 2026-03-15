@@ -60,7 +60,25 @@ clank logs <service-id>
 | `clank whoami` | Current user info |
 | `clank config get/set` | CLI configuration |
 | `clank init` | Initialize a new project from current directory |
+| `clank skill install/uninstall` | Install the Claude Code skill |
 | `clank update` | Self-update the CLI |
+
+## Claude Code Integration
+
+The CLI ships with a built-in [Claude Code](https://claude.com/claude-code) skill that lets you manage your Clank platform using natural language:
+
+```sh
+# Install the skill (global)
+clank skill install
+
+# Install for current project only
+clank skill install --project
+
+# Then in Claude Code, use:
+#   /clank list my projects
+#   /clank deploy the ghost service
+#   /clank set DATABASE_URL on service abc123
+```
 
 ## Shell Completion
 
