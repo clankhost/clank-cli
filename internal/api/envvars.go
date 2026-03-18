@@ -66,13 +66,28 @@ func BulkCreateEnvVars(c *Client, serviceID string, req EnvVarBulkCreateRequest)
 // RevealEnvVar returns the plaintext value of a secret env var.
 func RevealEnvVar(c *Client, varID string) (string, error) {
 	var resp EnvVarRevealResponse
-	if err := c.get(fmt.Sprintf("/api/env-vars/%s/reveal", varID), &resp); err != nil {
+	if err := c.get(fmt.Sprintf("/api/services/env-vars/%s/reveal", varID), &resp); err != nil {
 		return "", err
 	}
 	return resp.Value, nil
 }
 
+// EnvVarUpdateRequest is the body for updating an env var.
+type EnvVarUpdateRequest struct {
+	Value    *string `json:"value,omitempty"`
+	IsSecret *bool   `json:"is_secret,omitempty"`
+}
+
+// UpdateEnvVar updates an existing env var by ID.
+func UpdateEnvVar(c *Client, varID string, req EnvVarUpdateRequest) (*EnvVar, error) {
+	var v EnvVar
+	if err := c.patch(fmt.Sprintf("/api/services/env-vars/%s", varID), req, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
 // DeleteEnvVar deletes an env var by ID.
 func DeleteEnvVar(c *Client, varID string) error {
-	return c.delete(fmt.Sprintf("/api/env-vars/%s", varID))
+	return c.delete(fmt.Sprintf("/api/services/env-vars/%s", varID))
 }

@@ -116,6 +116,47 @@ func TestClientHandles409(t *testing.T) {
 	}
 }
 
+func TestClientSetsContentTypeOnBodilessPost(t *testing.T) {
+	var receivedContentType string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedContentType = r.Header.Get("Content-Type")
+		w.WriteHeader(204)
+	}))
+	defer server.Close()
+
+	client := New(server.URL, "token")
+	// POST with nil body — should still send Content-Type.
+	err := client.post("/api/services/123/deploy", nil, nil)
+	if err != nil {
+		t.Fatalf("POST failed: %v", err)
+	}
+
+	if receivedContentType != "application/json" {
+		t.Errorf("expected Content-Type application/json on bodiless POST, got %q", receivedContentType)
+	}
+}
+
+func TestClientSetsContentTypeOnDelete(t *testing.T) {
+	var receivedContentType string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedContentType = r.Header.Get("Content-Type")
+		w.WriteHeader(204)
+	}))
+	defer server.Close()
+
+	client := New(server.URL, "token")
+	err := client.delete("/api/services/env-vars/123")
+	if err != nil {
+		t.Fatalf("DELETE failed: %v", err)
+	}
+
+	if receivedContentType != "application/json" {
+		t.Errorf("expected Content-Type application/json on DELETE, got %q", receivedContentType)
+	}
+}
+
 func TestLoginExtractsCookie(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" || r.URL.Path != "/api/auth/login" {
