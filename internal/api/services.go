@@ -2,26 +2,38 @@ package api
 
 import "fmt"
 
+// RuntimeState represents the live container state of a service.
+type RuntimeState struct {
+	ContainerStatus string  `json:"container_status"`
+	IsHealthy       *bool   `json:"is_healthy"`
+	LastCheckedAt   *string `json:"last_checked_at"`
+}
+
 // Service represents a Clank service.
 type Service struct {
-	ID                   string  `json:"id"`
-	ProjectID            string  `json:"project_id"`
-	Name                 string  `json:"name"`
-	Slug                 string  `json:"slug"`
-	RepoURL              string  `json:"repo_url"`
-	Branch               string  `json:"branch"`
-	DockerfilePath       string  `json:"dockerfile_path"`
-	Port                 int     `json:"port"`
-	HealthCheckPath      string  `json:"health_check_path"`
-	HealthCheckTimeoutS  int     `json:"health_check_timeout_s"`
-	HealthCheckRetries   int     `json:"health_check_retries"`
-	HealthCheckIntervalS int     `json:"health_check_interval_s"`
-	BuildTimeoutS        int     `json:"build_timeout_s"`
-	DeployTimeoutS       int     `json:"deploy_timeout_s"`
-	CurrentDeploymentID  *string `json:"current_deployment_id"`
-	AutoDeploy           bool    `json:"auto_deploy"`
-	CreatedAt            string  `json:"created_at"`
-	UpdatedAt            string  `json:"updated_at"`
+	ID                     string        `json:"id"`
+	ProjectID              string        `json:"project_id"`
+	Name                   string        `json:"name"`
+	Slug                   string        `json:"slug"`
+	ResourceType           string        `json:"resource_type"`
+	RepoURL                string        `json:"repo_url"`
+	Image                  *string       `json:"image"`
+	Branch                 string        `json:"branch"`
+	DockerfilePath         string        `json:"dockerfile_path"`
+	Port                   int           `json:"port"`
+	HealthCheckPath        string        `json:"health_check_path"`
+	HealthCheckTimeoutS    int           `json:"health_check_timeout_s"`
+	HealthCheckRetries     int           `json:"health_check_retries"`
+	HealthCheckIntervalS   int           `json:"health_check_interval_s"`
+	BuildTimeoutS          int           `json:"build_timeout_s"`
+	DeployTimeoutS         int           `json:"deploy_timeout_s"`
+	CurrentDeploymentID    *string       `json:"current_deployment_id"`
+	LatestDeploymentStatus *string       `json:"latest_deployment_status"`
+	AutoDeploy             bool          `json:"auto_deploy"`
+	ServerID               *string       `json:"server_id"`
+	RuntimeState           *RuntimeState `json:"runtime_state,omitempty"`
+	CreatedAt              string        `json:"created_at"`
+	UpdatedAt              string        `json:"updated_at"`
 }
 
 // ListServices returns all services in a project.

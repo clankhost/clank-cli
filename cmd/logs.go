@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/signal"
 
@@ -16,7 +17,16 @@ var logsCmd = &cobra.Command{
 	Use:   "logs <service-id>",
 	Short: "Stream logs for a service",
 	Long: `Stream runtime logs from the active container. Use --build to stream
-build logs from a specific deployment instead.`,
+build logs from a specific deployment instead.
+
+Time-based filtering:
+  --since 1h          logs from the last hour
+  --since 30m         logs from the last 30 minutes
+  --since 2d          logs from the last 2 days
+  --since 2026-03-18T10:00:00Z   logs since a specific time
+  --until 2026-03-18T11:00:00Z   logs until a specific time
+
+When --until is specified, the stream ends after returning historical logs.`,
 	Args: cobra.ExactArgs(1),
 	RunE: runLogs,
 }
@@ -30,6 +40,8 @@ func runLogs(cmd *cobra.Command, args []string) error {
 	serviceID := args[0]
 	buildDeploymentID, _ := cmd.Flags().GetString("build")
 	tail, _ := cmd.Flags().GetInt("tail")
+	since, _ := cmd.Flags().GetString("since")
+	until, _ := cmd.Flags().GetString("until")
 
 	client := newClient()
 
@@ -47,7 +59,15 @@ func runLogs(cmd *cobra.Command, args []string) error {
 		eventType = "build_log"
 	} else {
 		// Runtime logs for the active container.
-		path = fmt.Sprintf("/api/services/%s/logs/stream?tail=%d", serviceID, tail)
+		params := url.Values{}
+		params.Set("tail", fmt.Sprintf("%d", tail))
+		if since != "" {
+			params.Set("since", since)
+		}
+		if until != "" {
+			params.Set("until", until)
+		}
+		path = fmt.Sprintf("/api/services/%s/logs/stream?%s", serviceID, params.Encode())
 		eventType = "runtime_log"
 	}
 
@@ -105,5 +125,7 @@ func runLogs(cmd *cobra.Command, args []string) error {
 func init() {
 	logsCmd.Flags().Int("tail", 200, "number of lines to tail (runtime logs only)")
 	logsCmd.Flags().String("build", "", "stream build logs for a specific deployment ID")
+	logsCmd.Flags().String("since", "", "show logs since time (e.g. 1h, 30m, 2d, or RFC3339 timestamp)")
+	logsCmd.Flags().String("until", "", "show logs until time (e.g. 1h, 30m, or RFC3339 timestamp)")
 	rootCmd.AddCommand(logsCmd)
 }

@@ -41,7 +41,9 @@ var servicesListCmd = &cobra.Command{
 		rows := make([][]string, len(services))
 		for i, s := range services {
 			status := "no deployment"
-			if s.CurrentDeploymentID != nil {
+			if s.LatestDeploymentStatus != nil {
+				status = *s.LatestDeploymentStatus
+			} else if s.CurrentDeploymentID != nil {
 				status = "active"
 			}
 			rows[i] = []string{

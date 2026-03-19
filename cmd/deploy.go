@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"time"
 
 	"github.com/clankhost/clank-cli/internal/api"
 	"github.com/clankhost/clank-cli/internal/output"
@@ -17,7 +18,11 @@ import (
 var deployCmd = &cobra.Command{
 	Use:   "deploy <service-id>",
 	Short: "Trigger a deployment for a service",
-	Long:  "Triggers a manual deploy and streams build logs + deployment events in real time.",
+	Long: `Triggers a manual deploy and streams build logs + deployment events in real time.
+
+Use --no-follow to return immediately after triggering. Combine with --wait to
+block until the deployment reaches a terminal status (active/failed) without
+streaming logs — ideal for CI/CD scripts.`,
 	Args:  cobra.ExactArgs(1),
 	RunE:  runDeploy,
 }
@@ -40,6 +45,14 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 
 	if noFollow {
 		fmt.Printf("Deployment ID: %s\n", deployment.ID)
+		wait, _ := cmd.Flags().GetBool("wait")
+		if wait {
+			timeout, _ := cmd.Flags().GetInt("timeout")
+			code := waitForTerminal(client, deployment.ID, timeout)
+			if code != 0 {
+				os.Exit(code)
+			}
+		}
 		return nil
 	}
 
@@ -224,7 +237,57 @@ func pollFinalStatus(client *api.Client, deploymentID string) int {
 	return 1
 }
 
+// waitForTerminal polls deployment status until it reaches a terminal state.
+// Returns 0 for active, 1 for failure, 2 for timeout.
+func waitForTerminal(client *api.Client, deploymentID string, timeoutSec int) int {
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt)
+	defer signal.Stop(sigCh)
+
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+
+	deadline := time.After(time.Duration(timeoutSec) * time.Second)
+	lastStatus := ""
+
+	for {
+		select {
+		case <-sigCh:
+			fmt.Println("\nInterrupted. Deployment continues in background.")
+			return 0
+		case <-deadline:
+			fmt.Fprintf(os.Stderr, "Timed out after %ds waiting for deployment.\n", timeoutSec)
+			fmt.Fprintf(os.Stderr, "Check status: clank deployments info %s\n", deploymentID)
+			return 2
+		case <-ticker.C:
+			dep, err := api.GetDeployment(client, deploymentID)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error checking status: %v\n", err)
+				continue
+			}
+
+			if dep.Status != lastStatus {
+				fmt.Printf("Waiting... (%s)\n", output.StatusColor(dep.Status))
+				lastStatus = dep.Status
+			}
+
+			if api.IsTerminalStatus(dep.Status) {
+				fmt.Printf("Final status: %s\n", output.StatusColor(dep.Status))
+				if dep.Status == "active" {
+					return 0
+				}
+				if dep.ErrorMessage != nil {
+					fmt.Fprintf(os.Stderr, "Error: %s\n", *dep.ErrorMessage)
+				}
+				return 1
+			}
+		}
+	}
+}
+
 func init() {
 	deployCmd.Flags().Bool("no-follow", false, "don't stream logs; just print deployment ID and exit")
+	deployCmd.Flags().Bool("wait", false, "block until terminal status (use with --no-follow)")
+	deployCmd.Flags().Int("timeout", 600, "max seconds to wait with --wait")
 	rootCmd.AddCommand(deployCmd)
 }
