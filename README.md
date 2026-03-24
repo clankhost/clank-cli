@@ -1,5 +1,7 @@
 # Clank CLI
 
+[![CI](https://github.com/clankhost/clank-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/clankhost/clank-cli/actions/workflows/ci.yml)
+
 Command-line interface for [Clank](https://clank.host), a self-hosted platform for deploying containerized applications.
 
 ## Install
