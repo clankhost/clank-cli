@@ -4,12 +4,17 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/clankhost/clank-cli/internal/api"
 	"github.com/clankhost/clank-cli/internal/output"
 	"github.com/spf13/cobra"
 )
+
+// msysMangledPath detects values that look like MSYS/Git Bash path-mangled
+// (e.g., /data → C:/Program Files/Git/data).
+var msysMangledPath = regexp.MustCompile(`^[A-Z]:/Program Files/Git/`)
 
 var envCmd = &cobra.Command{
 	Use:   "env",
@@ -100,38 +105,70 @@ Use --secret to mark all variables as secrets (values will be masked).`,
 
 		client := newClient()
 
-		if len(vars) == 1 {
-			v, err := api.CreateEnvVar(client, serviceID, vars[0])
-			if err != nil {
-				return err
+		// Warn about MSYS path mangling on Git Bash.
+		if os.Getenv("MSYSTEM") != "" {
+			for _, v := range vars {
+				if msysMangledPath.MatchString(v.Value) {
+					fmt.Fprintf(os.Stderr, "Warning: %q looks like an MSYS-mangled path.\n", v.Value)
+					fmt.Fprintf(os.Stderr, "  Git Bash rewrites Unix paths (e.g., /data → C:/Program Files/Git/data).\n")
+					fmt.Fprintf(os.Stderr, "  Fix: MSYS_NO_PATHCONV=1 clank env set ...\n")
+				}
 			}
-			if output.IsJSON() {
-				return output.JSON(v)
-			}
-			fmt.Printf("Set %s\n", v.Key)
-			return nil
 		}
 
-		// Bulk create.
-		resp, err := api.BulkCreateEnvVars(client, serviceID, api.EnvVarBulkCreateRequest{Vars: vars})
+		// Fetch existing vars for upsert logic.
+		existing, err := api.ListEnvVars(client, serviceID)
 		if err != nil {
 			return err
 		}
+		existingByKey := make(map[string]string, len(existing))
+		for _, v := range existing {
+			existingByKey[v.Key] = v.ID
+		}
+
+		var created, updated int
+		for _, v := range vars {
+			if varID, exists := existingByKey[v.Key]; exists {
+				// Update existing var.
+				result, err := api.UpdateEnvVar(client, varID, api.EnvVarUpdateRequest{
+					Value:    &v.Value,
+					IsSecret: &v.IsSecret,
+				})
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error updating %s: %v\n", v.Key, err)
+					continue
+				}
+				updated++
+				if output.IsJSON() && len(vars) == 1 {
+					return output.JSON(result)
+				}
+			} else {
+				// Create new var.
+				result, err := api.CreateEnvVar(client, serviceID, v)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error creating %s: %v\n", v.Key, err)
+					continue
+				}
+				created++
+				if output.IsJSON() && len(vars) == 1 {
+					return output.JSON(result)
+				}
+			}
+		}
 
 		if output.IsJSON() {
-			return output.JSON(resp)
+			return output.JSON(map[string]int{"created": created, "updated": updated})
 		}
 
-		if len(resp.Created) > 0 {
-			fmt.Printf("Set %d variable(s)\n", len(resp.Created))
+		var parts []string
+		if created > 0 {
+			parts = append(parts, fmt.Sprintf("set %d", created))
 		}
-		if len(resp.Skipped) > 0 {
-			fmt.Printf("Skipped %d (already exist): %s\n", len(resp.Skipped), strings.Join(resp.Skipped, ", "))
+		if updated > 0 {
+			parts = append(parts, fmt.Sprintf("updated %d", updated))
 		}
-		if len(resp.Errors) > 0 {
-			for _, e := range resp.Errors {
-				fmt.Fprintf(os.Stderr, "Error: %s\n", e)
-			}
+		if len(parts) > 0 {
+			fmt.Printf("%s variable(s)\n", strings.Join(parts, ", "))
 		}
 		return nil
 	},
