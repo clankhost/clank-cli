@@ -27,6 +27,8 @@ type Service struct {
 	HealthCheckIntervalS   int           `json:"health_check_interval_s"`
 	BuildTimeoutS          int           `json:"build_timeout_s"`
 	DeployTimeoutS         int           `json:"deploy_timeout_s"`
+	CPULimit               float64       `json:"cpu_limit"`
+	MemoryLimitMB          int           `json:"memory_limit_mb"`
 	CurrentDeploymentID    *string       `json:"current_deployment_id"`
 	LatestDeploymentStatus *string       `json:"latest_deployment_status"`
 	AutoDeploy             bool          `json:"auto_deploy"`
@@ -183,4 +185,19 @@ func StartService(c *Client, serviceID string) (*ContainerControlResponse, error
 		return nil, err
 	}
 	return &resp, nil
+}
+
+// UpdateResourcesRequest is the body for updating service resource limits.
+type UpdateResourcesRequest struct {
+	CPULimit      *float64 `json:"cpu_limit,omitempty"`
+	MemoryLimitMB *int     `json:"memory_limit_mb,omitempty"`
+}
+
+// UpdateServiceResources updates CPU/memory limits for a service.
+func UpdateServiceResources(c *Client, serviceID string, req UpdateResourcesRequest) (*Service, error) {
+	var service Service
+	if err := c.patch(fmt.Sprintf("/api/services/%s", serviceID), req, &service); err != nil {
+		return nil, err
+	}
+	return &service, nil
 }

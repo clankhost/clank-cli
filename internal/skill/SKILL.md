@@ -1,6 +1,6 @@
 ---
 name: clank
-description: Manage Clank platform — projects, services, deploys, env vars, endpoints, domains, backups, servers, and more. All operations use the CLI directly.
+description: Manage Clank platform — projects, services, deploys, env vars, resources, endpoints, domains, backups, servers, and more. All operations use the CLI directly.
 ---
 
 # /clank
@@ -98,6 +98,14 @@ clank deployments events <deployment-id>     # Lifecycle events
 clank backups list <service-id>              # List backups
 clank backups create <service-id>            # Create a backup
 clank backups delete <service-id> <backup-id> # Delete a backup
+```
+
+### Resources (CPU & Memory)
+```bash
+clank resources <service-id>                 # View CPU/memory limits + server capacity
+clank resources set <service-id> --cpu 1     # Set CPU limit (vCPU)
+clank resources set <service-id> --memory 2048  # Set memory limit (MB)
+clank resources set <service-id> --cpu 0.5 --memory 1024  # Set both
 ```
 
 ### Endpoints
