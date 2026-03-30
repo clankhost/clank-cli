@@ -110,7 +110,11 @@ clank resources set <service-id> --cpu 0.5 --memory 1024  # Set both
 
 ### Endpoints
 ```bash
-clank endpoints <service-id>                 # List endpoints (alias: clank ep)
+clank endpoints list <service-id>            # List endpoints (alias: clank ep list)
+clank endpoints update <endpoint-id> --hostname app.example.com  # Update hostname
+clank endpoints update <endpoint-id> --primary  # Set as primary
+clank endpoints remove <endpoint-id>         # Remove an endpoint
+clank endpoints check <endpoint-id>          # Verify endpoint health
 ```
 
 ### Servers (Agent Hosts)
