@@ -37,7 +37,7 @@ type UpdateEndpointRequest struct {
 // UpdateEndpoint updates an endpoint's hostname or primary status.
 func UpdateEndpoint(c *Client, endpointID string, req UpdateEndpointRequest) (*Endpoint, error) {
 	var ep Endpoint
-	if err := c.patch(fmt.Sprintf("/api/endpoints/%s", endpointID), req, &ep); err != nil {
+	if err := c.patch(fmt.Sprintf("/api/services/endpoints/%s", endpointID), req, &ep); err != nil {
 		return nil, err
 	}
 	return &ep, nil
@@ -45,13 +45,13 @@ func UpdateEndpoint(c *Client, endpointID string, req UpdateEndpointRequest) (*E
 
 // DeleteEndpoint removes an endpoint.
 func DeleteEndpoint(c *Client, endpointID string) error {
-	return c.delete(fmt.Sprintf("/api/endpoints/%s", endpointID))
+	return c.delete(fmt.Sprintf("/api/services/endpoints/%s", endpointID))
 }
 
 // CheckEndpoint triggers a health/status check on an endpoint.
 func CheckEndpoint(c *Client, endpointID string) (*Endpoint, error) {
 	var ep Endpoint
-	if err := c.post(fmt.Sprintf("/api/endpoints/%s/check", endpointID), nil, &ep); err != nil {
+	if err := c.post(fmt.Sprintf("/api/services/endpoints/%s/check", endpointID), nil, &ep); err != nil {
 		return nil, err
 	}
 	return &ep, nil
