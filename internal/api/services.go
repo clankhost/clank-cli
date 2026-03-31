@@ -143,13 +143,13 @@ func AddDomain(c *Client, serviceID string, req AddDomainRequest) (*Domain, erro
 
 // RemoveDomain deletes a domain.
 func RemoveDomain(c *Client, domainID string) error {
-	return c.delete(fmt.Sprintf("/api/domains/%s", domainID))
+	return c.delete(fmt.Sprintf("/api/services/domains/%s", domainID))
 }
 
 // RecheckDomain triggers DNS re-verification for a domain.
 func RecheckDomain(c *Client, domainID string) (*Domain, error) {
 	var domain Domain
-	if err := c.post(fmt.Sprintf("/api/domains/%s/recheck", domainID), nil, &domain); err != nil {
+	if err := c.post(fmt.Sprintf("/api/services/domains/%s/recheck", domainID), nil, &domain); err != nil {
 		return nil, err
 	}
 	return &domain, nil
