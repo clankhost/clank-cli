@@ -133,9 +133,28 @@ var deploymentsEventsCmd = &cobra.Command{
 	},
 }
 
+var deploymentsCancelCmd = &cobra.Command{
+	Use:   "cancel <deployment-id>",
+	Short: "Cancel a pending or in-progress deployment",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		client := newClient()
+		d, err := api.CancelDeployment(client, args[0])
+		if err != nil {
+			return err
+		}
+		if output.IsJSON() {
+			return output.JSON(d)
+		}
+		fmt.Printf("Deployment %s cancelled.\n", output.ShortID(d.ID))
+		return nil
+	},
+}
+
 func init() {
 	deploymentsCmd.AddCommand(deploymentsListCmd)
 	deploymentsCmd.AddCommand(deploymentsInfoCmd)
 	deploymentsCmd.AddCommand(deploymentsEventsCmd)
+	deploymentsCmd.AddCommand(deploymentsCancelCmd)
 	rootCmd.AddCommand(deploymentsCmd)
 }

@@ -61,6 +61,15 @@ func ListDeployments(c *Client, serviceID string) ([]Deployment, error) {
 	return deployments, nil
 }
 
+// CancelDeployment cancels a pending or in-progress deployment.
+func CancelDeployment(c *Client, deploymentID string) (*Deployment, error) {
+	var dep Deployment
+	if err := c.post(fmt.Sprintf("/api/deployments/%s/cancel", deploymentID), nil, &dep); err != nil {
+		return nil, err
+	}
+	return &dep, nil
+}
+
 // IsTerminalStatus returns true if the deployment status is a terminal state.
 func IsTerminalStatus(status string) bool {
 	switch status {

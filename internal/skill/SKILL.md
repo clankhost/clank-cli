@@ -91,6 +91,7 @@ clank domains recheck <domain-id>            # Re-check DNS verification
 clank deployments list <service-id>          # List all deployments (alias: deps)
 clank deployments info <deployment-id>       # Deployment details
 clank deployments events <deployment-id>     # Lifecycle events
+clank deployments cancel <deployment-id>     # Cancel stuck deployment
 ```
 
 ### Backups
