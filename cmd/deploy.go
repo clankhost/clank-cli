@@ -20,9 +20,15 @@ var deployCmd = &cobra.Command{
 	Short: "Trigger a deployment for a service",
 	Long: `Triggers a manual deploy and streams build logs + deployment events in real time.
 
+Use --image to deploy a pre-built registry image instead of building from source.
+This enables the "build once, deploy many" pattern for services that share code.
+
 Use --no-follow to return immediately after triggering. Combine with --wait to
 block until the deployment reaches a terminal status (active/failed) without
 streaming logs — ideal for CI/CD scripts.`,
+	Example: `  clank deploy <service-id>
+  clank deploy <service-id> --image registry.clank.host/team/svc:abc123
+  clank deploy <service-id> --no-follow --wait`,
 	Args:  cobra.ExactArgs(1),
 	RunE:  runDeploy,
 }
@@ -30,10 +36,17 @@ streaming logs — ideal for CI/CD scripts.`,
 func runDeploy(cmd *cobra.Command, args []string) error {
 	serviceID := args[0]
 	noFollow, _ := cmd.Flags().GetBool("no-follow")
+	imageTag, _ := cmd.Flags().GetString("image")
 
 	client := newClient()
 
-	deployment, err := api.TriggerDeploy(client, serviceID)
+	var deployment *api.Deployment
+	var err error
+	if imageTag != "" {
+		deployment, err = api.TriggerDeployWithImage(client, serviceID, imageTag)
+	} else {
+		deployment, err = api.TriggerDeploy(client, serviceID)
+	}
 	if err != nil {
 		if api.IsConflict(err) {
 			return fmt.Errorf("a deployment is already in progress for this service")
@@ -286,6 +299,7 @@ func waitForTerminal(client *api.Client, deploymentID string, timeoutSec int) in
 }
 
 func init() {
+	deployCmd.Flags().String("image", "", "deploy a pre-built image instead of building from source")
 	deployCmd.Flags().Bool("no-follow", false, "don't stream logs; just print deployment ID and exit")
 	deployCmd.Flags().Bool("wait", false, "block until terminal status (use with --no-follow)")
 	deployCmd.Flags().Int("timeout", 600, "max seconds to wait with --wait")

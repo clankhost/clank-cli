@@ -47,6 +47,7 @@ clank services delete <service-id>
 ### Deploy & Rollback
 ```bash
 clank deploy <service-id>                    # Deploy latest (streams logs)
+clank deploy <service-id> --image <ref>      # Deploy pre-built image (skip build)
 clank deploy <service-id> --no-follow        # Deploy without log streaming
 clank rollback <service-id>                  # Rollback to previous deployment
 clank rollback <service-id> --to <deploy-id> # Rollback to specific deployment

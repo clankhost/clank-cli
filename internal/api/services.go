@@ -79,10 +79,25 @@ func DeleteService(c *Client, id string) error {
 	return c.delete(fmt.Sprintf("/api/services/%s", id))
 }
 
+// DeployRequest is the optional body for POST /api/services/{id}/deploy.
+type DeployRequest struct {
+	ImageTag string `json:"image_tag,omitempty"`
+}
+
 // TriggerDeploy triggers a manual deployment for a service.
 func TriggerDeploy(c *Client, serviceID string) (*Deployment, error) {
 	var deployment Deployment
 	if err := c.post(fmt.Sprintf("/api/services/%s/deploy", serviceID), nil, &deployment); err != nil {
+		return nil, err
+	}
+	return &deployment, nil
+}
+
+// TriggerDeployWithImage triggers a deployment using a pre-built image.
+func TriggerDeployWithImage(c *Client, serviceID, imageTag string) (*Deployment, error) {
+	var deployment Deployment
+	body := DeployRequest{ImageTag: imageTag}
+	if err := c.post(fmt.Sprintf("/api/services/%s/deploy", serviceID), body, &deployment); err != nil {
 		return nil, err
 	}
 	return &deployment, nil
