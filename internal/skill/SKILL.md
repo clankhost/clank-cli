@@ -92,6 +92,13 @@ clank deployments list <service-id>          # List all deployments (alias: deps
 clank deployments info <deployment-id>       # Deployment details
 clank deployments events <deployment-id>     # Lifecycle events
 clank deployments cancel <deployment-id>     # Cancel stuck deployment
+clank deployments push <deployment-id>       # Push image to registry
+```
+
+### Push to Registry
+```bash
+clank push <service-id>                      # Push current deployment to registry
+clank push <service-id> --no-follow          # Push without waiting for completion
 ```
 
 ### Backups

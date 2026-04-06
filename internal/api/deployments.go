@@ -18,6 +18,10 @@ type Deployment struct {
 	TriggeredBy        string         `json:"triggered_by"`
 	SourceDeploymentID *string        `json:"source_deployment_id"`
 	ErrorMessage       *string        `json:"error_message"`
+	ArtifactScope      *string        `json:"artifact_scope"`
+	RollbackCapable    bool           `json:"rollback_capable"`
+	ImageDigest        *string        `json:"image_digest"`
+	ContainerName      *string        `json:"container_name"`
 	StartedAt          *string        `json:"started_at"`
 	FinishedAt         *string        `json:"finished_at"`
 	CreatedAt          string         `json:"created_at"`
@@ -59,6 +63,21 @@ func ListDeployments(c *Client, serviceID string) ([]Deployment, error) {
 		return nil, err
 	}
 	return deployments, nil
+}
+
+// PushToRegistryResponse is the response from POST /deployments/{id}/push-to-registry.
+type PushToRegistryResponse struct {
+	Status      string `json:"status"`
+	TargetImage string `json:"target_image"`
+}
+
+// PushToRegistry initiates pushing a deployment's image to the registry.
+func PushToRegistry(c *Client, deploymentID string) (*PushToRegistryResponse, error) {
+	var resp PushToRegistryResponse
+	if err := c.post(fmt.Sprintf("/api/deployments/%s/push-to-registry", deploymentID), nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
 }
 
 // CancelDeployment cancels a pending or in-progress deployment.

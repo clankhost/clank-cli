@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/clankhost/clank-cli/internal/api"
 	"github.com/clankhost/clank-cli/internal/output"
@@ -133,6 +134,62 @@ var deploymentsEventsCmd = &cobra.Command{
 	},
 }
 
+var deploymentsPushCmd = &cobra.Command{
+	Use:   "push <deployment-id>",
+	Short: "Push a deployment's image to the registry",
+	Long:  "Push a local deployment's image to the Clank registry for rollback capability and cross-server availability.",
+	Args:  cobra.ExactArgs(1),
+	Example: `  clank deployments push <deployment-id>
+  clank deployments push <deployment-id> --no-follow`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		noFollow, _ := cmd.Flags().GetBool("no-follow")
+		return runPush(args[0], noFollow)
+	},
+}
+
+func runPush(deploymentID string, noFollow bool) error {
+	client := newClient()
+
+	resp, err := api.PushToRegistry(client, deploymentID)
+	if err != nil {
+		return err
+	}
+
+	if output.IsJSON() && noFollow {
+		return output.JSON(resp)
+	}
+
+	fmt.Printf("Pushing to %s...\n", resp.TargetImage)
+
+	if noFollow {
+		return nil
+	}
+
+	// Poll until artifact_scope flips to "registry" or timeout
+	for i := 0; i < 60; i++ { // 2s * 60 = 2 min timeout
+		time.Sleep(2 * time.Second)
+		d, err := api.GetDeployment(client, deploymentID)
+		if err != nil {
+			return fmt.Errorf("polling failed: %w", err)
+		}
+		if d.ArtifactScope != nil && *d.ArtifactScope == "registry" {
+			if output.IsJSON() {
+				return output.JSON(d)
+			}
+			digest := "-"
+			if d.ImageDigest != nil {
+				digest = *d.ImageDigest
+			}
+			fmt.Printf("Pushed successfully.\n")
+			fmt.Printf("  Image:  %s\n", resp.TargetImage)
+			fmt.Printf("  Digest: %s\n", digest)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("push timed out after 2 minutes")
+}
+
 var deploymentsCancelCmd = &cobra.Command{
 	Use:   "cancel <deployment-id>",
 	Short: "Cancel a pending or in-progress deployment",
@@ -152,9 +209,12 @@ var deploymentsCancelCmd = &cobra.Command{
 }
 
 func init() {
+	deploymentsPushCmd.Flags().Bool("no-follow", false, "return immediately without waiting for push to complete")
+
 	deploymentsCmd.AddCommand(deploymentsListCmd)
 	deploymentsCmd.AddCommand(deploymentsInfoCmd)
 	deploymentsCmd.AddCommand(deploymentsEventsCmd)
 	deploymentsCmd.AddCommand(deploymentsCancelCmd)
+	deploymentsCmd.AddCommand(deploymentsPushCmd)
 	rootCmd.AddCommand(deploymentsCmd)
 }
