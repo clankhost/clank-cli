@@ -59,10 +59,30 @@ func GetService(c *Client, id string) (*Service, error) {
 // CreateServiceRequest is the body for creating a service.
 type CreateServiceRequest struct {
 	Name           string `json:"name"`
-	RepoURL        string `json:"repo_url"`
+	ResourceType   string `json:"resource_type,omitempty"`
+	RepoURL        string `json:"repo_url,omitempty"`
+	Image          string `json:"image,omitempty"`
 	Branch         string `json:"branch,omitempty"`
 	DockerfilePath string `json:"dockerfile_path,omitempty"`
 	Port           int    `json:"port,omitempty"`
+	ServerID       string `json:"server_id,omitempty"`
+}
+
+// UpdateServiceRequest is the body for updating a service.
+type UpdateServiceRequest struct {
+	Name     *string `json:"name,omitempty"`
+	ServerID *string `json:"server_id,omitempty"`
+	Port     *int    `json:"port,omitempty"`
+	Branch   *string `json:"branch,omitempty"`
+}
+
+// UpdateService updates a service's configuration.
+func UpdateService(c *Client, serviceID string, req UpdateServiceRequest) (*Service, error) {
+	var service Service
+	if err := c.patch(fmt.Sprintf("/api/services/%s", serviceID), req, &service); err != nil {
+		return nil, err
+	}
+	return &service, nil
 }
 
 // CreateService creates a new service in a project.

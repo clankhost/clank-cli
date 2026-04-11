@@ -41,6 +41,10 @@ clank projects delete <project-id>           # Delete project
 clank services list --project <project-id>   # List services in project
 clank services info <service-id>             # Service details
 clank services create --project <id> --name "web" --repo "user/repo" --port 3000
+clank services create --project <id> --name "web" --repo "user/repo" --server <server-id>
+clank services create --project <id> --name "app" --image nginx:latest --server <server-id>
+clank services update <service-id> --server <server-id>  # Reassign server
+clank services update <service-id> --name "new-name"     # Rename
 clank services delete <service-id>
 ```
 
