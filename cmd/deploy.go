@@ -29,24 +29,22 @@ streaming logs — ideal for CI/CD scripts.`,
 	Example: `  clank deploy <service-id>
   clank deploy <service-id> --image registry.clank.host/team/svc:abc123
   clank deploy <service-id> --no-follow --wait`,
-	Args:  cobra.ExactArgs(1),
-	RunE:  runDeploy,
+	Args: cobra.ExactArgs(1),
+	RunE: runDeploy,
 }
 
 func runDeploy(cmd *cobra.Command, args []string) error {
 	serviceID := args[0]
 	noFollow, _ := cmd.Flags().GetBool("no-follow")
 	imageTag, _ := cmd.Flags().GetString("image")
+	force, _ := cmd.Flags().GetBool("force")
 
 	client := newClient()
 
-	var deployment *api.Deployment
-	var err error
-	if imageTag != "" {
-		deployment, err = api.TriggerDeployWithImage(client, serviceID, imageTag)
-	} else {
-		deployment, err = api.TriggerDeploy(client, serviceID)
-	}
+	deployment, err := api.TriggerDeployWithOptions(client, serviceID, api.DeployRequest{
+		ImageTag: imageTag,
+		Force:    force,
+	})
 	if err != nil {
 		if api.IsConflict(err) {
 			return fmt.Errorf("a deployment is already in progress for this service")
@@ -300,6 +298,7 @@ func waitForTerminal(client *api.Client, deploymentID string, timeoutSec int) in
 
 func init() {
 	deployCmd.Flags().String("image", "", "deploy a pre-built image instead of building from source")
+	deployCmd.Flags().Bool("force", false, "bypass the deploy disk guard if Clank predicts low Docker disk space")
 	deployCmd.Flags().Bool("no-follow", false, "don't stream logs; just print deployment ID and exit")
 	deployCmd.Flags().Bool("wait", false, "block until terminal status (use with --no-follow)")
 	deployCmd.Flags().Int("timeout", 600, "max seconds to wait with --wait")

@@ -8,6 +8,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func formatHealthState(state string) string {
+	switch state {
+	case "healthy":
+		return "\033[32mhealthy\033[0m"
+	case "degraded":
+		return "\033[31mdegraded\033[0m"
+	case "not_applicable":
+		return "n/a"
+	case "", "unknown":
+		return "unknown"
+	default:
+		return state
+	}
+}
+
 var statusCmd = &cobra.Command{
 	Use:   "status [service-id]",
 	Short: "Show operational status overview",
@@ -50,22 +65,34 @@ func runProjectStatus(projectID string) error {
 		return nil
 	}
 
-	headers := []string{"SERVICE", "STATUS", "DEPLOYMENT", "UPDATED"}
+	headers := []string{"SERVICE", "APP", "ROUTED", "PUBLIC", "DEPLOYMENT", "UPDATED"}
 	rows := make([][]string, len(services))
 	for i, s := range services {
-		status := "no deployment"
-		if s.LatestDeploymentStatus != nil {
-			status = *s.LatestDeploymentStatus
+		app := "unknown"
+		routed := "n/a"
+		public := "n/a"
+		if s.HealthSummary != nil {
+			app = s.HealthSummary.App
+			routed = s.HealthSummary.Routed
+			public = s.HealthSummary.Public
 		}
 
 		deployment := "-"
 		if s.CurrentDeploymentID != nil {
-			deployment = output.ShortID(*s.CurrentDeploymentID)
+			status := "unknown"
+			if s.LatestDeploymentStatus != nil {
+				status = *s.LatestDeploymentStatus
+			}
+			deployment = fmt.Sprintf("%s (%s)", output.ShortID(*s.CurrentDeploymentID), output.StatusColor(status))
+		} else if s.LatestDeploymentStatus != nil {
+			deployment = output.StatusColor(*s.LatestDeploymentStatus)
 		}
 
 		rows[i] = []string{
 			s.Name,
-			output.StatusColor(status),
+			formatHealthState(app),
+			formatHealthState(routed),
+			formatHealthState(public),
 			deployment,
 			output.TimeSince(s.UpdatedAt),
 		}
@@ -106,15 +133,20 @@ func runServiceStatus(serviceID string) error {
 
 	fmt.Printf("Service:    %s\n", s.Name)
 	if runtimeInfo != "" {
-		fmt.Printf("Status:     %s (%s)\n", output.StatusColor(status), runtimeInfo)
+		fmt.Printf("Deployment: %s (%s)\n", output.StatusColor(status), runtimeInfo)
 	} else {
-		fmt.Printf("Status:     %s\n", output.StatusColor(status))
+		fmt.Printf("Deployment: %s\n", output.StatusColor(status))
 	}
 
 	if s.CurrentDeploymentID != nil {
-		fmt.Printf("Deployment: %s (%s)\n", output.ShortID(*s.CurrentDeploymentID), output.TimeSince(s.UpdatedAt))
+		fmt.Printf("Current ID:  %s (%s)\n", output.ShortID(*s.CurrentDeploymentID), output.TimeSince(s.UpdatedAt))
 	} else {
-		fmt.Printf("Deployment: none\n")
+		fmt.Printf("Current ID:  none\n")
+	}
+	if s.HealthSummary != nil {
+		fmt.Printf("App Healthy: %s\n", formatHealthState(s.HealthSummary.App))
+		fmt.Printf("Routed:      %s\n", formatHealthState(s.HealthSummary.Routed))
+		fmt.Printf("Public OK:   %s\n", formatHealthState(s.HealthSummary.Public))
 	}
 
 	fmt.Printf("Branch:     %s\n", s.Branch)

@@ -9,33 +9,43 @@ type RuntimeState struct {
 	LastCheckedAt   *string `json:"last_checked_at"`
 }
 
+// HealthSummary represents layered service health.
+type HealthSummary struct {
+	App          string  `json:"app"`
+	Routed       string  `json:"routed"`
+	Public       string  `json:"public"`
+	CheckedAt    *string `json:"checked_at"`
+	SummaryState string  `json:"summary_state"`
+}
+
 // Service represents a Clank service.
 type Service struct {
-	ID                     string        `json:"id"`
-	ProjectID              string        `json:"project_id"`
-	Name                   string        `json:"name"`
-	Slug                   string        `json:"slug"`
-	ResourceType           string        `json:"resource_type"`
-	RepoURL                string        `json:"repo_url"`
-	Image                  *string       `json:"image"`
-	Branch                 string        `json:"branch"`
-	DockerfilePath         string        `json:"dockerfile_path"`
-	Port                   int           `json:"port"`
-	HealthCheckPath        string        `json:"health_check_path"`
-	HealthCheckTimeoutS    int           `json:"health_check_timeout_s"`
-	HealthCheckRetries     int           `json:"health_check_retries"`
-	HealthCheckIntervalS   int           `json:"health_check_interval_s"`
-	BuildTimeoutS          int           `json:"build_timeout_s"`
-	DeployTimeoutS         int           `json:"deploy_timeout_s"`
-	CPULimit               float64       `json:"cpu_limit"`
-	MemoryLimitMB          int           `json:"memory_limit_mb"`
-	CurrentDeploymentID    *string       `json:"current_deployment_id"`
-	LatestDeploymentStatus *string       `json:"latest_deployment_status"`
-	AutoDeploy             bool          `json:"auto_deploy"`
-	ServerID               *string       `json:"server_id"`
-	RuntimeState           *RuntimeState `json:"runtime_state,omitempty"`
-	CreatedAt              string        `json:"created_at"`
-	UpdatedAt              string        `json:"updated_at"`
+	ID                     string         `json:"id"`
+	ProjectID              string         `json:"project_id"`
+	Name                   string         `json:"name"`
+	Slug                   string         `json:"slug"`
+	ResourceType           string         `json:"resource_type"`
+	RepoURL                string         `json:"repo_url"`
+	Image                  *string        `json:"image"`
+	Branch                 string         `json:"branch"`
+	DockerfilePath         string         `json:"dockerfile_path"`
+	Port                   int            `json:"port"`
+	HealthCheckPath        string         `json:"health_check_path"`
+	HealthCheckTimeoutS    int            `json:"health_check_timeout_s"`
+	HealthCheckRetries     int            `json:"health_check_retries"`
+	HealthCheckIntervalS   int            `json:"health_check_interval_s"`
+	BuildTimeoutS          int            `json:"build_timeout_s"`
+	DeployTimeoutS         int            `json:"deploy_timeout_s"`
+	CPULimit               float64        `json:"cpu_limit"`
+	MemoryLimitMB          int            `json:"memory_limit_mb"`
+	CurrentDeploymentID    *string        `json:"current_deployment_id"`
+	LatestDeploymentStatus *string        `json:"latest_deployment_status"`
+	AutoDeploy             bool           `json:"auto_deploy"`
+	ServerID               *string        `json:"server_id"`
+	RuntimeState           *RuntimeState  `json:"runtime_state,omitempty"`
+	HealthSummary          *HealthSummary `json:"health_summary,omitempty"`
+	CreatedAt              string         `json:"created_at"`
+	UpdatedAt              string         `json:"updated_at"`
 }
 
 // ListServices returns all services in a project.
@@ -102,12 +112,18 @@ func DeleteService(c *Client, id string) error {
 // DeployRequest is the optional body for POST /api/services/{id}/deploy.
 type DeployRequest struct {
 	ImageTag string `json:"image_tag,omitempty"`
+	Force    bool   `json:"force,omitempty"`
 }
 
 // TriggerDeploy triggers a manual deployment for a service.
 func TriggerDeploy(c *Client, serviceID string) (*Deployment, error) {
+	return TriggerDeployWithOptions(c, serviceID, DeployRequest{})
+}
+
+// TriggerDeployWithOptions triggers a deployment with optional overrides.
+func TriggerDeployWithOptions(c *Client, serviceID string, req DeployRequest) (*Deployment, error) {
 	var deployment Deployment
-	if err := c.post(fmt.Sprintf("/api/services/%s/deploy", serviceID), nil, &deployment); err != nil {
+	if err := c.post(fmt.Sprintf("/api/services/%s/deploy", serviceID), req, &deployment); err != nil {
 		return nil, err
 	}
 	return &deployment, nil
@@ -115,12 +131,7 @@ func TriggerDeploy(c *Client, serviceID string) (*Deployment, error) {
 
 // TriggerDeployWithImage triggers a deployment using a pre-built image.
 func TriggerDeployWithImage(c *Client, serviceID, imageTag string) (*Deployment, error) {
-	var deployment Deployment
-	body := DeployRequest{ImageTag: imageTag}
-	if err := c.post(fmt.Sprintf("/api/services/%s/deploy", serviceID), body, &deployment); err != nil {
-		return nil, err
-	}
-	return &deployment, nil
+	return TriggerDeployWithOptions(c, serviceID, DeployRequest{ImageTag: imageTag})
 }
 
 // RollbackRequest is the body for POST /api/services/{id}/rollback.

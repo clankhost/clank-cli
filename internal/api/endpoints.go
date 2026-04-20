@@ -15,6 +15,8 @@ type Endpoint struct {
 	URL             *string `json:"url"`
 	ProviderDisplay *string `json:"provider_display"`
 	LastError       *string `json:"last_error"`
+	RouteStatus     *string `json:"route_status"`
+	PublicStatus    *string `json:"public_status"`
 	CreatedAt       string  `json:"created_at"`
 	UpdatedAt       string  `json:"updated_at"`
 }

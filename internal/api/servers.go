@@ -75,6 +75,31 @@ type ServerServiceSummary struct {
 	MemoryLimitMB *int     `json:"memory_limit_mb"`
 }
 
+// DockerCleanupRequest configures preview/apply cleanup.
+type DockerCleanupRequest struct {
+	KeepSuccessfulImages int `json:"keep_successful_images,omitempty"`
+}
+
+// DockerCleanupSection summarizes one reclaimable Docker category.
+type DockerCleanupSection struct {
+	Count            int   `json:"count"`
+	ReclaimableBytes int64 `json:"reclaimable_bytes"`
+}
+
+// DockerCleanupResponse is returned by docker cleanup preview/apply endpoints.
+type DockerCleanupResponse struct {
+	ServerID             string               `json:"server_id"`
+	Mode                 string               `json:"mode"`
+	KeepSuccessfulImages int                  `json:"keep_successful_images"`
+	ProtectedImageRefs   []string             `json:"protected_image_refs"`
+	StoppedContainers    DockerCleanupSection `json:"stopped_containers"`
+	UnusedImages         DockerCleanupSection `json:"unused_images"`
+	BuildCache           DockerCleanupSection `json:"build_cache"`
+	ReclaimableBytes     int64                `json:"reclaimable_bytes"`
+	Applied              bool                 `json:"applied"`
+	ReclaimedBytesActual *int64               `json:"reclaimed_bytes_actual"`
+}
+
 // ListServerServices returns all services deployed on a server.
 func ListServerServices(c *Client, serverID string) ([]ServerServiceSummary, error) {
 	var services []ServerServiceSummary
@@ -82,4 +107,22 @@ func ListServerServices(c *Client, serverID string) ([]ServerServiceSummary, err
 		return nil, err
 	}
 	return services, nil
+}
+
+// PreviewDockerCleanup previews reclaimable Docker artifacts on a server.
+func PreviewDockerCleanup(c *Client, serverID string, req DockerCleanupRequest) (*DockerCleanupResponse, error) {
+	var resp DockerCleanupResponse
+	if err := c.post(fmt.Sprintf("/api/servers/%s/docker-cleanup/preview", serverID), req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// ApplyDockerCleanup performs safe Docker cleanup on a server.
+func ApplyDockerCleanup(c *Client, serverID string, req DockerCleanupRequest) (*DockerCleanupResponse, error) {
+	var resp DockerCleanupResponse
+	if err := c.post(fmt.Sprintf("/api/servers/%s/docker-cleanup", serverID), req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
 }
