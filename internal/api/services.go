@@ -1,6 +1,9 @@
 package api
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // RuntimeState represents the live container state of a service.
 type RuntimeState struct {
@@ -258,4 +261,40 @@ func UpdateServiceResources(c *Client, serviceID string, req UpdateResourcesRequ
 		return nil, err
 	}
 	return &service, nil
+}
+
+// ExecRequest is the body for POST /api/services/{id}/exec.
+type ExecRequest struct {
+	Command        any `json:"command"`
+	TimeoutSeconds int `json:"timeout_seconds,omitempty"`
+}
+
+// ExecResponse is the response from POST /api/services/{id}/exec.
+type ExecResponse struct {
+	ExitCode   int    `json:"exit_code"`
+	Stdout     string `json:"stdout"`
+	Stderr     string `json:"stderr"`
+	Truncated  bool   `json:"truncated"`
+	DurationMS int    `json:"duration_ms"`
+}
+
+// ExecService executes a command inside a service's active container.
+func ExecService(c *Client, serviceID string, req ExecRequest) (*ExecResponse, error) {
+	execClient := c
+	if req.TimeoutSeconds > 0 && c.HTTPClient != nil {
+		needed := time.Duration(req.TimeoutSeconds+15) * time.Second
+		if c.HTTPClient.Timeout > 0 && c.HTTPClient.Timeout < needed {
+			httpCopy := *c.HTTPClient
+			httpCopy.Timeout = needed
+			clientCopy := *c
+			clientCopy.HTTPClient = &httpCopy
+			execClient = &clientCopy
+		}
+	}
+
+	var resp ExecResponse
+	if err := execClient.post(fmt.Sprintf("/api/services/%s/exec", serviceID), req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
 }

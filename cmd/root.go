@@ -95,4 +95,5 @@ func newClient() *api.Client {
 func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default ~/.config/clank/config.yaml)")
 	rootCmd.PersistentFlags().StringVarP(&output.Format, "output", "o", "", "output format: json or table (default table)")
+	rootCmd.AddCommand(execCmd)
 }
