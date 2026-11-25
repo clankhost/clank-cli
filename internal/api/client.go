@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -131,9 +132,15 @@ func (c *Client) delete(path string) error {
 // SSEStream opens a GET request for Server-Sent Events and returns the
 // raw response body. The caller must close it when done.
 func (c *Client) SSEStream(path string) (io.ReadCloser, error) {
+	return c.SSEStreamContext(context.Background(), path)
+}
+
+// SSEStreamContext opens a GET request for Server-Sent Events bound to ctx.
+// Cancelling ctx aborts the request and unblocks readers on the returned body.
+func (c *Client) SSEStreamContext(ctx context.Context, path string) (io.ReadCloser, error) {
 	url := c.BaseURL + path
 
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating SSE request: %w", err)
 	}

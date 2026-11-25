@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -77,26 +78,30 @@ func followDeployment(client *api.Client, deploymentID string) error {
 	signal.Notify(sigCh, os.Interrupt)
 	defer signal.Stop(sigCh)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	var wg sync.WaitGroup
 	done := make(chan struct{})
 	exitCode := 0
 
-	// Stream build logs.
+	// Stream build logs (cancelled as soon as deployment events reach a terminal state).
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		streamBuildLogs(client, deploymentID, done)
+		streamBuildLogs(ctx, client, deploymentID)
 	}()
 
 	// Stream deployment events.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		code := streamDeployEvents(client, deploymentID, done)
+		defer cancel()
+		code := streamDeployEvents(ctx, client, deploymentID)
 		exitCode = code
 	}()
 
-	// Wait for signal or completion.
+	// Wait for completion.
 	go func() {
 		wg.Wait()
 		close(done)
@@ -104,6 +109,7 @@ func followDeployment(client *api.Client, deploymentID string) error {
 
 	select {
 	case <-sigCh:
+		cancel()
 		fmt.Println("\nInterrupted. Deployment continues in background.")
 		fmt.Printf("Check status: clank services info %s\n", deploymentID)
 		return nil
@@ -121,21 +127,24 @@ type buildLogData struct {
 	Timestamp string `json:"timestamp"`
 }
 
-func streamBuildLogs(client *api.Client, deploymentID string, done chan struct{}) {
-	body, err := client.SSEStream(fmt.Sprintf("/api/deployments/%s/logs/stream", deploymentID))
+func streamBuildLogs(ctx context.Context, client *api.Client, deploymentID string) {
+	body, err := client.SSEStreamContext(ctx, fmt.Sprintf("/api/deployments/%s/logs/stream", deploymentID))
 	if err != nil {
 		// Build logs may not be available (e.g., rollback). Not fatal.
 		return
 	}
 
+	stopClose := context.AfterFunc(ctx, func() {
+		_ = body.Close()
+	})
+	defer stopClose()
+
 	reader := sse.NewReader(body)
 	defer reader.Close()
 
 	for {
-		select {
-		case <-done:
+		if ctx.Err() != nil {
 			return
-		default:
 		}
 
 		evt, err := reader.Next()
@@ -163,22 +172,28 @@ type deployEventData struct {
 	Timestamp string `json:"timestamp"`
 }
 
-func streamDeployEvents(client *api.Client, deploymentID string, done chan struct{}) int {
-	body, err := client.SSEStream(fmt.Sprintf("/api/deployments/%s/events/stream", deploymentID))
+func streamDeployEvents(ctx context.Context, client *api.Client, deploymentID string) int {
+	body, err := client.SSEStreamContext(ctx, fmt.Sprintf("/api/deployments/%s/events/stream", deploymentID))
 	if err != nil {
+		if ctx.Err() != nil {
+			return 0
+		}
 		fmt.Fprintf(os.Stderr, "Failed to stream events: %v\n", err)
 		// Fall back to polling.
 		return pollFinalStatus(client, deploymentID)
 	}
 
+	stopClose := context.AfterFunc(ctx, func() {
+		_ = body.Close()
+	})
+	defer stopClose()
+
 	reader := sse.NewReader(body)
 	defer reader.Close()
 
 	for {
-		select {
-		case <-done:
+		if ctx.Err() != nil {
 			return 0
-		default:
 		}
 
 		evt, err := reader.Next()
@@ -187,6 +202,9 @@ func streamDeployEvents(client *api.Client, deploymentID string, done chan struc
 			return pollFinalStatus(client, deploymentID)
 		}
 		if err != nil {
+			if ctx.Err() != nil {
+				return 0
+			}
 			return pollFinalStatus(client, deploymentID)
 		}
 

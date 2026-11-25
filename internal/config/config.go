@@ -5,14 +5,35 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 )
 
 const (
 	DefaultBaseURL = "https://clank.host"
 	appName        = "clank"
 )
+
+var (
+	overridePathMu sync.RWMutex
+	overridePath   string
+)
+
+// SetConfigPath sets an override config file path (e.g. from --config)
+// used by Save and the Save* convenience helpers.
+func SetConfigPath(path string) {
+	overridePathMu.Lock()
+	overridePath = path
+	overridePathMu.Unlock()
+}
+
+func getConfigPathOverride() string {
+	overridePathMu.RLock()
+	defer overridePathMu.RUnlock()
+	return overridePath
+}
 
 // Config holds the CLI configuration.
 type Config struct {
@@ -102,11 +123,22 @@ func Load(overridePath string) (*Config, error) {
 	return cfg, nil
 }
 
-// Save writes the config to disk with restrictive permissions.
+// Save writes the config to disk atomically with restrictive permissions (0600),
+// honoring any path configured via SetConfigPath (e.g. --config).
 func Save(cfg *Config) error {
-	cfgPath, err := ConfigPath()
-	if err != nil {
-		return err
+	return SaveTo(getConfigPathOverride(), cfg)
+}
+
+// SaveTo writes the config atomically to overridePath (or the default config path
+// if overridePath is empty) via a 0600 temp file + rename.
+func SaveTo(targetPath string, cfg *Config) error {
+	cfgPath := targetPath
+	if cfgPath == "" {
+		var err error
+		cfgPath, err = ConfigPath()
+		if err != nil {
+			return err
+		}
 	}
 
 	dir := filepath.Dir(cfgPath)
@@ -114,56 +146,80 @@ func Save(cfg *Config) error {
 		return fmt.Errorf("creating config directory: %w", err)
 	}
 
-	v := viper.New()
-	v.Set("base_url", cfg.BaseURL)
-	v.Set("token", cfg.Token)
-	v.Set("team_id", cfg.TeamID)
-	v.SetConfigFile(cfgPath)
-	v.SetConfigType("yaml")
-
-	if err := v.WriteConfig(); err != nil {
-		// WriteConfig fails if file doesn't exist; use SafeWriteConfig first time.
-		if err := v.SafeWriteConfig(); err != nil {
-			return fmt.Errorf("writing config: %w", err)
-		}
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("marshaling config: %w", err)
 	}
 
-	// Restrict permissions on Unix (no-op on Windows).
+	// os.CreateTemp creates the file with mode 0600 (owner read/write only),
+	// avoiding any TOCTOU window where secrets are world-readable.
+	tmpFile, err := os.CreateTemp(dir, ".config-*.yaml.tmp")
+	if err != nil {
+		return fmt.Errorf("creating temp config file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	cleanupTmp := true
+	defer func() {
+		if cleanupTmp {
+			_ = os.Remove(tmpPath)
+		}
+	}()
+
 	if runtime.GOOS != "windows" {
-		if err := os.Chmod(cfgPath, 0600); err != nil {
+		if err := tmpFile.Chmod(0600); err != nil {
+			_ = tmpFile.Close()
 			return fmt.Errorf("setting config permissions: %w", err)
 		}
 	}
 
+	if _, err := tmpFile.Write(data); err != nil {
+		_ = tmpFile.Close()
+		return fmt.Errorf("writing config: %w", err)
+	}
+	if err := tmpFile.Sync(); err != nil {
+		_ = tmpFile.Close()
+		return fmt.Errorf("syncing config: %w", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		return fmt.Errorf("closing temp config: %w", err)
+	}
+
+	if err := os.Rename(tmpPath, cfgPath); err != nil {
+		return fmt.Errorf("replacing config file: %w", err)
+	}
+	cleanupTmp = false
 	return nil
 }
 
 // SaveToken is a convenience method: load config, update token, save.
 func SaveToken(token string) error {
-	cfg, err := Load("")
+	path := getConfigPathOverride()
+	cfg, err := Load(path)
 	if err != nil {
 		return err
 	}
 	cfg.Token = token
-	return Save(cfg)
+	return SaveTo(path, cfg)
 }
 
 // SaveBaseURL is a convenience method: load config, update base_url, save.
 func SaveBaseURL(baseURL string) error {
-	cfg, err := Load("")
+	path := getConfigPathOverride()
+	cfg, err := Load(path)
 	if err != nil {
 		return err
 	}
 	cfg.BaseURL = baseURL
-	return Save(cfg)
+	return SaveTo(path, cfg)
 }
 
 // SaveTeamID is a convenience method: load config, update team_id, save.
 func SaveTeamID(teamID string) error {
-	cfg, err := Load("")
+	path := getConfigPathOverride()
+	cfg, err := Load(path)
 	if err != nil {
 		return err
 	}
 	cfg.TeamID = teamID
-	return Save(cfg)
+	return SaveTo(path, cfg)
 }

@@ -38,10 +38,22 @@ func TestSaveAndLoad(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.yaml")
 
-	// Write config using direct file write (avoids viper version quirks).
-	data := []byte("base_url: https://test.example.com\ntoken: test-jwt-token-value\n")
-	if err := os.WriteFile(cfgPath, data, 0600); err != nil {
-		t.Fatalf("writing config: %v", err)
+	original := &Config{
+		BaseURL: "https://test.example.com",
+		Token:   "test-jwt-token-value",
+		TeamID:  "team-123",
+	}
+	if err := SaveTo(cfgPath, original); err != nil {
+		t.Fatalf("SaveTo failed: %v", err)
+	}
+
+	// Ensure no temp files were left behind.
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("ReadDir failed: %v", err)
+	}
+	if len(entries) != 1 || entries[0].Name() != "config.yaml" {
+		t.Fatalf("unexpected files in config dir: %v", entries)
 	}
 
 	// Load it back.
@@ -50,11 +62,40 @@ func TestSaveAndLoad(t *testing.T) {
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	if loaded.BaseURL != "https://test.example.com" {
-		t.Errorf("BaseURL: expected %q, got %q", "https://test.example.com", loaded.BaseURL)
+	if loaded.BaseURL != original.BaseURL {
+		t.Errorf("BaseURL: expected %q, got %q", original.BaseURL, loaded.BaseURL)
 	}
-	if loaded.Token != "test-jwt-token-value" {
-		t.Errorf("Token: expected %q, got %q", "test-jwt-token-value", loaded.Token)
+	if loaded.Token != original.Token {
+		t.Errorf("Token: expected %q, got %q", original.Token, loaded.Token)
+	}
+	if loaded.TeamID != original.TeamID {
+		t.Errorf("TeamID: expected %q, got %q", original.TeamID, loaded.TeamID)
+	}
+}
+
+func TestSaveHonorsOverridePath(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "custom.yaml")
+
+	SetConfigPath(cfgPath)
+	t.Cleanup(func() { SetConfigPath("") })
+
+	if err := SaveBaseURL("https://override.example.com"); err != nil {
+		t.Fatalf("SaveBaseURL failed: %v", err)
+	}
+	if err := SaveToken("clank_override_token_value"); err != nil {
+		t.Fatalf("SaveToken failed: %v", err)
+	}
+	if err := SaveTeamID("team-override"); err != nil {
+		t.Fatalf("SaveTeamID failed: %v", err)
+	}
+
+	loaded, err := Load(cfgPath)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if loaded.BaseURL != "https://override.example.com" || loaded.Token != "clank_override_token_value" || loaded.TeamID != "team-override" {
+		t.Fatalf("unexpected loaded config: %+v", loaded)
 	}
 }
 
@@ -66,15 +107,11 @@ func TestFilePermissions(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.yaml")
 
-	// Write config using direct file write (avoids viper version quirks).
-	data := []byte("base_url: https://test.example.com\ntoken: secret\n")
-	if err := os.WriteFile(cfgPath, data, 0644); err != nil {
-		t.Fatalf("writing config: %v", err)
-	}
-
-	// Set permissions like Save() does.
-	if err := os.Chmod(cfgPath, 0600); err != nil {
-		t.Fatalf("chmod: %v", err)
+	if err := SaveTo(cfgPath, &Config{
+		BaseURL: "https://test.example.com",
+		Token:   "secret",
+	}); err != nil {
+		t.Fatalf("SaveTo failed: %v", err)
 	}
 
 	info, err := os.Stat(cfgPath)

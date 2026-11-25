@@ -25,6 +25,7 @@ var rootCmd = &cobra.Command{
 			return nil
 		}
 
+		config.SetConfigPath(cfgFile)
 		var err error
 		cfg, err = config.Load(cfgFile)
 		if err != nil {

@@ -8,14 +8,60 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
+
+const (
+	maxUpdateArchiveBytes  = 256 * 1024 * 1024 // 256 MiB
+	maxUpdateBinaryBytes   = 256 * 1024 * 1024 // 256 MiB
+	maxUpdateMetadataBytes = 1 * 1024 * 1024   // 1 MiB
+)
+
+func validateUpdateURL(rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid update URL %q: %w", rawURL, err)
+	}
+	if u.Host == "" {
+		return fmt.Errorf("invalid update URL %q: missing host", rawURL)
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "https":
+		return nil
+	case "http":
+		host := strings.ToLower(u.Hostname())
+		if host == "localhost" {
+			return nil
+		}
+		if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+			return nil
+		}
+		return fmt.Errorf("update URL must use HTTPS (got %q)", rawURL)
+	default:
+		return fmt.Errorf("unsupported update URL scheme %q", u.Scheme)
+	}
+}
+
+func newUpdateHTTPClient(timeout time.Duration) *http.Client {
+	return &http.Client{
+		Timeout: timeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return fmt.Errorf("stopped after 10 redirects")
+			}
+			return validateUpdateURL(req.URL.String())
+		},
+	}
+}
 
 var updateCmd = &cobra.Command{
 	Use:   "update",
@@ -24,21 +70,27 @@ var updateCmd = &cobra.Command{
 }
 
 func runUpdate(cmd *cobra.Command, args []string) error {
-	baseURL := cfg.BaseURL + "/api/install/cli"
+	baseURL := strings.TrimRight(cfg.BaseURL, "/") + "/api/install/cli"
+	if err := validateUpdateURL(baseURL); err != nil {
+		return err
+	}
+
+	metaClient := newUpdateHTTPClient(30 * time.Second)
+	downloadClient := newUpdateHTTPClient(5 * time.Minute)
 
 	// 1. Check latest version
 	fmt.Print("Checking for updates... ")
-	resp, err := http.Get(baseURL + "/latest/version")
+	resp, err := metaClient.Get(baseURL + "/latest/version")
 	if err != nil {
 		return fmt.Errorf("checking version: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("version check failed (status %d)", resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxUpdateMetadataBytes))
 	if err != nil {
 		return fmt.Errorf("reading version: %w", err)
 	}
@@ -66,13 +118,13 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Downloading %s... ", archiveName)
 
 	archiveURL := baseURL + "/latest/download/" + archiveName
-	archiveResp, err := http.Get(archiveURL)
+	archiveResp, err := downloadClient.Get(archiveURL)
 	if err != nil {
 		return fmt.Errorf("downloading archive: %w", err)
 	}
 	defer archiveResp.Body.Close()
 
-	if archiveResp.StatusCode != 200 {
+	if archiveResp.StatusCode != http.StatusOK {
 		return fmt.Errorf("download failed (status %d)", archiveResp.StatusCode)
 	}
 
@@ -89,23 +141,31 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	hasher := sha256.New()
-	if _, err := io.Copy(io.MultiWriter(f, hasher), archiveResp.Body); err != nil {
+	written, err := io.Copy(io.MultiWriter(f, hasher), io.LimitReader(archiveResp.Body, maxUpdateArchiveBytes+1))
+	if err != nil {
 		f.Close()
 		return fmt.Errorf("saving archive: %w", err)
 	}
 	f.Close()
+	if written > maxUpdateArchiveBytes {
+		return fmt.Errorf("downloaded archive exceeds maximum allowed size (%d bytes)", maxUpdateArchiveBytes)
+	}
 	actualHash := hex.EncodeToString(hasher.Sum(nil))
 	fmt.Println("done")
 
 	// 4. Verify checksum
 	fmt.Print("Verifying checksum... ")
-	checksumResp, err := http.Get(baseURL + "/latest/download/checksums.txt")
+	checksumResp, err := metaClient.Get(baseURL + "/latest/download/checksums.txt")
 	if err != nil {
 		return fmt.Errorf("downloading checksums: %w", err)
 	}
 	defer checksumResp.Body.Close()
 
-	checksumBody, err := io.ReadAll(checksumResp.Body)
+	if checksumResp.StatusCode != http.StatusOK {
+		return fmt.Errorf("downloading checksums failed (status %d)", checksumResp.StatusCode)
+	}
+
+	checksumBody, err := io.ReadAll(io.LimitReader(checksumResp.Body, maxUpdateMetadataBytes))
 	if err != nil {
 		return fmt.Errorf("reading checksums: %w", err)
 	}
@@ -206,8 +266,8 @@ func extractFromTarGz(archivePath, targetName string) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		if filepath.Base(hdr.Name) == targetName {
-			return io.ReadAll(tr)
+		if filepath.Base(hdr.Name) == targetName && hdr.Typeflag == tar.TypeReg {
+			return readBoundedBinary(tr, maxUpdateBinaryBytes)
 		}
 	}
 	return nil, fmt.Errorf("binary %q not found in archive", targetName)
@@ -221,16 +281,27 @@ func extractFromZip(archivePath, targetName string) ([]byte, error) {
 	defer r.Close()
 
 	for _, f := range r.File {
-		if filepath.Base(f.Name) == targetName {
+		if filepath.Base(f.Name) == targetName && !f.FileInfo().IsDir() {
 			rc, err := f.Open()
 			if err != nil {
 				return nil, err
 			}
 			defer rc.Close()
-			return io.ReadAll(rc)
+			return readBoundedBinary(rc, maxUpdateBinaryBytes)
 		}
 	}
 	return nil, fmt.Errorf("binary %q not found in archive", targetName)
+}
+
+func readBoundedBinary(r io.Reader, maxBytes int64) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(r, maxBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > maxBytes {
+		return nil, fmt.Errorf("extracted binary exceeds maximum allowed size (%d bytes)", maxBytes)
+	}
+	return data, nil
 }
 
 func init() {

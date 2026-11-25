@@ -13,6 +13,20 @@ var configCmd = &cobra.Command{
 	Short: "Manage CLI configuration",
 }
 
+func maskToken(token string) string {
+	if len(token) <= 8 {
+		return "****"
+	}
+	return fmt.Sprintf("%s...%s", token[:4], token[len(token)-4:])
+}
+
+func maskAPIKeyPrefix(value string) string {
+	if len(value) > 14 {
+		return value[:14] + "..."
+	}
+	return maskToken(value)
+}
+
 var configGetCmd = &cobra.Command{
 	Use:   "get [key]",
 	Short: "Get a config value (or all values if no key given)",
@@ -22,7 +36,7 @@ var configGetCmd = &cobra.Command{
 			// Print all config values.
 			fmt.Printf("base_url: %s\n", cfg.BaseURL)
 			if cfg.Token != "" {
-				fmt.Printf("token:    %s...%s\n", cfg.Token[:4], cfg.Token[len(cfg.Token)-4:])
+				fmt.Printf("token:    %s\n", maskToken(cfg.Token))
 			} else {
 				fmt.Println("token:    (not set)")
 			}
@@ -37,7 +51,7 @@ var configGetCmd = &cobra.Command{
 			if cfg.Token == "" {
 				fmt.Println("(not set)")
 			} else {
-				fmt.Printf("%s...%s\n", cfg.Token[:4], cfg.Token[len(cfg.Token)-4:])
+				fmt.Println(maskToken(cfg.Token))
 			}
 		default:
 			return fmt.Errorf("unknown config key: %s (valid keys: base_url, token)", key)
@@ -66,7 +80,7 @@ var configSetCmd = &cobra.Command{
 				if err := config.SaveToken(value); err != nil {
 					return err
 				}
-				fmt.Printf("API key set (%s...)\n", value[:14])
+				fmt.Printf("API key set (%s)\n", maskAPIKeyPrefix(value))
 			} else {
 				return fmt.Errorf("use 'clank login' to set a JWT token, or provide an API key (clank_...)")
 			}
