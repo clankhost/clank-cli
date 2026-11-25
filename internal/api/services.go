@@ -80,10 +80,11 @@ type CreateServiceRequest struct {
 
 // UpdateServiceRequest is the body for updating a service.
 type UpdateServiceRequest struct {
-	Name     *string `json:"name,omitempty"`
-	ServerID *string `json:"server_id,omitempty"`
-	Port     *int    `json:"port,omitempty"`
-	Branch   *string `json:"branch,omitempty"`
+	Name       *string `json:"name,omitempty"`
+	ServerID   *string `json:"server_id,omitempty"`
+	Port       *int    `json:"port,omitempty"`
+	Branch     *string `json:"branch,omitempty"`
+	AutoDeploy *bool   `json:"auto_deploy,omitempty"`
 }
 
 // UpdateService updates a service's configuration.
@@ -112,6 +113,7 @@ func DeleteService(c *Client, id string) error {
 // DeployRequest is the optional body for POST /api/services/{id}/deploy.
 type DeployRequest struct {
 	ImageTag string `json:"image_tag,omitempty"`
+	Image    string `json:"image,omitempty"`
 	Force    bool   `json:"force,omitempty"`
 }
 
@@ -213,6 +215,16 @@ func RestartService(c *Client, serviceID string) (*ContainerControlResponse, err
 		return nil, err
 	}
 	return &resp, nil
+}
+
+// RestartServiceDeployment recreates a service container with fresh env/config (no rebuild)
+// and returns the created deployment.
+func RestartServiceDeployment(c *Client, serviceID string) (*Deployment, error) {
+	var dep Deployment
+	if err := c.post(fmt.Sprintf("/api/services/%s/restart", serviceID), nil, &dep); err != nil {
+		return nil, err
+	}
+	return &dep, nil
 }
 
 // StopService stops a service's container.

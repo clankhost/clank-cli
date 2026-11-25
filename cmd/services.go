@@ -171,9 +171,14 @@ var servicesUpdateCmd = &cobra.Command{
 			req.Branch = &v
 			changed = true
 		}
+		if cmd.Flags().Changed("auto-deploy") {
+			v, _ := cmd.Flags().GetBool("auto-deploy")
+			req.AutoDeploy = &v
+			changed = true
+		}
 
 		if !changed {
-			return fmt.Errorf("at least one flag is required (--server, --name, --port, --branch)")
+			return fmt.Errorf("at least one flag is required (--server, --name, --port, --branch, --auto-deploy)")
 		}
 
 		client := newClient()
@@ -191,6 +196,60 @@ var servicesUpdateCmd = &cobra.Command{
 			fmt.Printf("  Server: %s\n", *req.ServerID)
 			fmt.Println("\nRedeploy to move workloads to the new server.")
 		}
+		return nil
+	},
+}
+
+var servicesRestartCmd = &cobra.Command{
+	Use:   "restart <service-id-or-name>",
+	Short: "Recreate a service container with updated env vars (no rebuild)",
+	Long: `Triggers a fast redeploy using the service's latest built image with fresh
+environment variables and configuration, without rebuilding from source.`,
+	Example: `  clank services restart <service-id>
+  clank services restart web --wait
+  clank services restart <service-id> --wait -o json`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		wait, _ := cmd.Flags().GetBool("wait")
+		timeout, _ := cmd.Flags().GetInt("timeout")
+
+		client := newClient()
+		serviceID, err := resolveServiceID(client, args[0])
+		if err != nil {
+			return err
+		}
+
+		dep, err := api.RestartServiceDeployment(client, serviceID)
+		if err != nil {
+			if api.IsConflict(err) {
+				return fmt.Errorf("a deployment is already in progress for this service")
+			}
+			return err
+		}
+
+		if wait {
+			finalDep, code := waitForDeployment(client, dep.ID, timeout, output.IsJSON())
+			if finalDep != nil {
+				dep = finalDep
+			}
+			if output.IsJSON() {
+				_ = output.JSON(dep)
+			}
+			if code != 0 {
+				if code == 2 {
+					return fmt.Errorf("timed out after %ds waiting for restart deployment %s", timeout, dep.ID)
+				}
+				return fmt.Errorf("restart deployment %s ended with status %s", dep.ID, dep.Status)
+			}
+			return nil
+		}
+
+		if output.IsJSON() {
+			return output.JSON(dep)
+		}
+
+		fmt.Printf("Restart deployment %s triggered (%s)\n", output.ShortID(dep.ID), dep.Status)
+		fmt.Printf("Deployment ID: %s\n", dep.ID)
 		return nil
 	},
 }
@@ -223,11 +282,16 @@ func init() {
 	servicesUpdateCmd.Flags().String("name", "", "rename the service")
 	servicesUpdateCmd.Flags().Int("port", 0, "change container port")
 	servicesUpdateCmd.Flags().String("branch", "", "change git branch")
+	servicesUpdateCmd.Flags().Bool("auto-deploy", false, "enable or disable auto-deploy on git push (--auto-deploy=true|false)")
+
+	servicesRestartCmd.Flags().Bool("wait", false, "wait until the restarted deployment becomes active")
+	servicesRestartCmd.Flags().Int("timeout", 600, "max seconds to wait with --wait")
 
 	servicesCmd.AddCommand(servicesListCmd)
 	servicesCmd.AddCommand(servicesInfoCmd)
 	servicesCmd.AddCommand(servicesCreateCmd)
 	servicesCmd.AddCommand(servicesUpdateCmd)
+	servicesCmd.AddCommand(servicesRestartCmd)
 	servicesCmd.AddCommand(servicesDeleteCmd)
 	rootCmd.AddCommand(servicesCmd)
 }

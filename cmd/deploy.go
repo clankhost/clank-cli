@@ -37,6 +37,8 @@ streaming logs — ideal for CI/CD scripts.`,
 func runDeploy(cmd *cobra.Command, args []string) error {
 	serviceID := args[0]
 	noFollow, _ := cmd.Flags().GetBool("no-follow")
+	wait, _ := cmd.Flags().GetBool("wait")
+	timeout, _ := cmd.Flags().GetInt("timeout")
 	imageTag, _ := cmd.Flags().GetString("image")
 	force, _ := cmd.Flags().GetBool("force")
 
@@ -44,6 +46,7 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 
 	deployment, err := api.TriggerDeployWithOptions(client, serviceID, api.DeployRequest{
 		ImageTag: imageTag,
+		Image:    imageTag,
 		Force:    force,
 	})
 	if err != nil {
@@ -53,14 +56,35 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if output.IsJSON() {
+		if wait {
+			finalDep, code := waitForDeployment(client, deployment.ID, timeout, true)
+			if finalDep != nil {
+				_ = output.JSON(finalDep)
+			} else {
+				_ = output.JSON(deployment)
+			}
+			if code != 0 {
+				if code == 2 {
+					return fmt.Errorf("timed out after %ds waiting for deployment %s", timeout, deployment.ID)
+				}
+				status := deployment.Status
+				if finalDep != nil {
+					status = finalDep.Status
+				}
+				return fmt.Errorf("deployment %s ended with status %s", deployment.ID, status)
+			}
+			return nil
+		}
+		return output.JSON(deployment)
+	}
+
 	fmt.Printf("Deployment %s triggered (%s)\n", output.ShortID(deployment.ID), deployment.Status)
 
-	if noFollow {
+	if noFollow || wait {
 		fmt.Printf("Deployment ID: %s\n", deployment.ID)
-		wait, _ := cmd.Flags().GetBool("wait")
 		if wait {
-			timeout, _ := cmd.Flags().GetInt("timeout")
-			code := waitForTerminal(client, deployment.ID, timeout)
+			_, code := waitForDeployment(client, deployment.ID, timeout, false)
 			if code != 0 {
 				os.Exit(code)
 			}
@@ -266,49 +290,82 @@ func pollFinalStatus(client *api.Client, deploymentID string) int {
 	return 1
 }
 
+// waitPollInterval is the polling cadence for --wait (overridable in tests).
+var waitPollInterval = 3 * time.Second
+
 // waitForTerminal polls deployment status until it reaches a terminal state.
 // Returns 0 for active, 1 for failure, 2 for timeout.
 func waitForTerminal(client *api.Client, deploymentID string, timeoutSec int) int {
+	_, code := waitForDeployment(client, deploymentID, timeoutSec, false)
+	return code
+}
+
+// waitForDeployment polls deployment status until it reaches a terminal state.
+// When quiet is true, stdout is left clean (for -o json callers).
+// Returns the latest observed Deployment and exit code (0 active, 1 failure, 2 timeout).
+func waitForDeployment(client *api.Client, deploymentID string, timeoutSec int, quiet bool) (*api.Deployment, int) {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt)
 	defer signal.Stop(sigCh)
 
-	ticker := time.NewTicker(3 * time.Second)
+	ticker := time.NewTicker(waitPollInterval)
 	defer ticker.Stop()
 
 	deadline := time.After(time.Duration(timeoutSec) * time.Second)
 	lastStatus := ""
+	var latest *api.Deployment
+
+	check := func() (*api.Deployment, int, bool) {
+		dep, err := api.GetDeployment(client, deploymentID)
+		if err != nil {
+			if !quiet {
+				fmt.Fprintf(os.Stderr, "Error checking status: %v\n", err)
+			}
+			return latest, 0, false
+		}
+		latest = dep
+
+		if !quiet && dep.Status != lastStatus {
+			fmt.Printf("Waiting... (%s)\n", output.StatusColor(dep.Status))
+			lastStatus = dep.Status
+		}
+
+		if api.IsTerminalStatus(dep.Status) {
+			if !quiet {
+				fmt.Printf("Final status: %s\n", output.StatusColor(dep.Status))
+			}
+			if dep.Status == "active" {
+				return dep, 0, true
+			}
+			if !quiet && dep.ErrorMessage != nil {
+				fmt.Fprintf(os.Stderr, "Error: %s\n", *dep.ErrorMessage)
+			}
+			return dep, 1, true
+		}
+		return latest, 0, false
+	}
+
+	// Check immediately before waiting a full tick.
+	if dep, code, done := check(); done {
+		return dep, code
+	}
 
 	for {
 		select {
 		case <-sigCh:
-			fmt.Println("\nInterrupted. Deployment continues in background.")
-			return 0
+			if !quiet {
+				fmt.Println("\nInterrupted. Deployment continues in background.")
+			}
+			return latest, 0
 		case <-deadline:
-			fmt.Fprintf(os.Stderr, "Timed out after %ds waiting for deployment.\n", timeoutSec)
-			fmt.Fprintf(os.Stderr, "Check status: clank deployments info %s\n", deploymentID)
-			return 2
+			if !quiet {
+				fmt.Fprintf(os.Stderr, "Timed out after %ds waiting for deployment.\n", timeoutSec)
+				fmt.Fprintf(os.Stderr, "Check status: clank deployments info %s\n", deploymentID)
+			}
+			return latest, 2
 		case <-ticker.C:
-			dep, err := api.GetDeployment(client, deploymentID)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error checking status: %v\n", err)
-				continue
-			}
-
-			if dep.Status != lastStatus {
-				fmt.Printf("Waiting... (%s)\n", output.StatusColor(dep.Status))
-				lastStatus = dep.Status
-			}
-
-			if api.IsTerminalStatus(dep.Status) {
-				fmt.Printf("Final status: %s\n", output.StatusColor(dep.Status))
-				if dep.Status == "active" {
-					return 0
-				}
-				if dep.ErrorMessage != nil {
-					fmt.Fprintf(os.Stderr, "Error: %s\n", *dep.ErrorMessage)
-				}
-				return 1
+			if dep, code, done := check(); done {
+				return dep, code
 			}
 		}
 	}
