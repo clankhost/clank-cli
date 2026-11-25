@@ -147,6 +147,14 @@ func TestBuildDBQueryCommandSafePositionalArgs(t *testing.T) {
 			if argv[4] != trickyQuery {
 				t.Errorf("argv[4] = %q, want exact query %q", argv[4], trickyQuery)
 			}
+			if tc.engine == dbEngineMySQL {
+				if !strings.Contains(argv[2], `MYSQL_PWD="${MYSQL_ROOT_PASSWORD}"`) {
+					t.Errorf("mysql script must pass MYSQL_PWD in env, got: %q", argv[2])
+				}
+				if strings.Contains(argv[2], `-p"${MYSQL_ROOT_PASSWORD}"`) || strings.Contains(argv[2], `-p"${MARIADB_ROOT_PASSWORD}"`) {
+					t.Errorf("mysql script must not pass root password via -p argv, got: %q", argv[2])
+				}
+			}
 		})
 	}
 }

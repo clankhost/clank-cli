@@ -119,8 +119,8 @@ func buildDBQueryCommand(engine dbEngine, query string) ([]string, error) {
 		script = `exec psql -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-postgres}" -c "$1"`
 	case dbEngineMySQL:
 		script = `bin=mysql; command -v mysql >/dev/null 2>&1 || bin=mariadb; ` +
-			`if [ -n "${MYSQL_ROOT_PASSWORD:-}" ]; then exec "$bin" -u root -p"${MYSQL_ROOT_PASSWORD}" ${MYSQL_DATABASE:+"$MYSQL_DATABASE"} -e "$1"; ` +
-			`elif [ -n "${MARIADB_ROOT_PASSWORD:-}" ]; then exec "$bin" -u root -p"${MARIADB_ROOT_PASSWORD}" ${MARIADB_DATABASE:+"$MARIADB_DATABASE"} -e "$1"; ` +
+			`if [ -n "${MYSQL_ROOT_PASSWORD:-}" ]; then MYSQL_PWD="${MYSQL_ROOT_PASSWORD}" exec "$bin" -u root ${MYSQL_DATABASE:+"$MYSQL_DATABASE"} -e "$1"; ` +
+			`elif [ -n "${MARIADB_ROOT_PASSWORD:-}" ]; then MYSQL_PWD="${MARIADB_ROOT_PASSWORD}" exec "$bin" -u root ${MARIADB_DATABASE:+"$MARIADB_DATABASE"} -e "$1"; ` +
 			`else exec "$bin" -u root ${MYSQL_DATABASE:+"$MYSQL_DATABASE"} -e "$1"; fi`
 	case dbEngineMongo:
 		script = `bin=mongosh; command -v mongosh >/dev/null 2>&1 || bin=mongo; ` +

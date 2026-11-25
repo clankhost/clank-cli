@@ -175,3 +175,26 @@ func TestUpMissingFileReturnsError(t *testing.T) {
 		t.Fatalf("expected error for missing clank.toml")
 	}
 }
+
+func TestUpRejectsDryRunWithDeploy(t *testing.T) {
+	called := false
+	setupUpTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+	}))
+
+	tomlPath := writeTempClankToml(t, "[project]\nname = \"my-app\"\n[[services]]\nname = \"web\"\nimage = \"nginx:alpine\"\n")
+	_ = upCmd.Flags().Set("file", tomlPath)
+	_ = upCmd.Flags().Set("dry-run", "true")
+	_ = upCmd.Flags().Set("deploy", "true")
+
+	err := runUp(upCmd, []string{"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"})
+	if err == nil {
+		t.Fatalf("expected error when both --dry-run and --deploy are set")
+	}
+	if !strings.Contains(err.Error(), "--dry-run") || !strings.Contains(err.Error(), "--deploy") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+	if called {
+		t.Error("API should not be called when --dry-run and --deploy are both set")
+	}
+}

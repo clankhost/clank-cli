@@ -36,6 +36,10 @@ func runUp(cmd *cobra.Command, args []string) error {
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	deploy, _ := cmd.Flags().GetBool("deploy")
 
+	if dryRun && deploy {
+		return fmt.Errorf("--dry-run and --deploy cannot be used together")
+	}
+
 	rawBytes, err := os.ReadFile(filePath)
 	if err != nil {
 		return fmt.Errorf("reading %s: %w", filePath, err)
