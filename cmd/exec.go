@@ -18,12 +18,14 @@ var execInput io.Reader
 var execCmd = &cobra.Command{
 	Use:   "exec <service-id-or-name> [-- <command...>]",
 	Short: "Execute a command inside a running service container",
-	Long: `Run a one-shot command inside a service's active container, or omit the
-command to open an interactive REPL session.
+	Long: `Run a one-shot command inside a service's active container, open an
+interactive WebSocket PTY session with -it, or omit the command to open an
+interactive REPL session.
 
 Examples:
   clank exec my-api -- ls -la
   clank exec my-api --timeout 60 -o json -- env
+  clank exec -it my-api
   clank exec my-api`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: runExec,
@@ -35,11 +37,19 @@ func runExec(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--timeout must be between 1 and 120 seconds")
 	}
 
+	stdinFlag, _ := cmd.Flags().GetBool("stdin")
+	ttyFlag, _ := cmd.Flags().GetBool("tty")
+
 	serviceRef := args[0]
 	client := newClient()
 	serviceID, err := resolveServiceID(client, serviceRef)
 	if err != nil {
 		return err
+	}
+
+	// Interactive WebSocket PTY / session console when -i or -t is set.
+	if stdinFlag || ttyFlag {
+		return runExecPTY(client, serviceID, serviceRef)
 	}
 
 	// One-shot mode when command arguments are provided.
@@ -139,4 +149,6 @@ func runExec(cmd *cobra.Command, args []string) error {
 
 func init() {
 	execCmd.Flags().Int("timeout", 30, "command timeout in seconds (1-120)")
+	execCmd.Flags().BoolP("stdin", "i", false, "keep stdin open for interactive WebSocket PTY session")
+	execCmd.Flags().BoolP("tty", "t", false, "allocate a pseudo-TTY for interactive WebSocket session")
 }
