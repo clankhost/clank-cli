@@ -19,18 +19,6 @@ type EnvVarCreateRequest struct {
 	IsSecret bool   `json:"is_secret,omitempty"`
 }
 
-// EnvVarBulkCreateRequest is the body for creating multiple env vars.
-type EnvVarBulkCreateRequest struct {
-	Vars []EnvVarCreateRequest `json:"vars"`
-}
-
-// EnvVarBulkResponse is the response from a bulk create.
-type EnvVarBulkResponse struct {
-	Created []EnvVar `json:"created"`
-	Skipped []string `json:"skipped"`
-	Errors  []string `json:"errors"`
-}
-
 // EnvVarRevealResponse is the response from revealing a secret.
 type EnvVarRevealResponse struct {
 	Value string `json:"value"`
@@ -52,15 +40,6 @@ func CreateEnvVar(c *Client, serviceID string, req EnvVarCreateRequest) (*EnvVar
 		return nil, err
 	}
 	return &v, nil
-}
-
-// BulkCreateEnvVars creates multiple env vars on a service.
-func BulkCreateEnvVars(c *Client, serviceID string, req EnvVarBulkCreateRequest) (*EnvVarBulkResponse, error) {
-	var resp EnvVarBulkResponse
-	if err := c.post(fmt.Sprintf("/api/services/%s/env-vars/bulk", serviceID), req, &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
 }
 
 // RevealEnvVar returns the plaintext value of a secret env var.

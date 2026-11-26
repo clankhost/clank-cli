@@ -120,11 +120,6 @@ type DeployRequest struct {
 	Force    bool   `json:"force,omitempty"`
 }
 
-// TriggerDeploy triggers a manual deployment for a service.
-func TriggerDeploy(c *Client, serviceID string) (*Deployment, error) {
-	return TriggerDeployWithOptions(c, serviceID, DeployRequest{})
-}
-
 // TriggerDeployWithOptions triggers a deployment with optional overrides.
 func TriggerDeployWithOptions(c *Client, serviceID string, req DeployRequest) (*Deployment, error) {
 	var deployment Deployment
@@ -132,11 +127,6 @@ func TriggerDeployWithOptions(c *Client, serviceID string, req DeployRequest) (*
 		return nil, err
 	}
 	return &deployment, nil
-}
-
-// TriggerDeployWithImage triggers a deployment using a pre-built image.
-func TriggerDeployWithImage(c *Client, serviceID, imageTag string) (*Deployment, error) {
-	return TriggerDeployWithOptions(c, serviceID, DeployRequest{ImageTag: imageTag})
 }
 
 // RollbackRequest is the body for POST /api/services/{id}/rollback.

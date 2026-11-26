@@ -21,15 +21,6 @@ func ListProjects(c *Client) ([]Project, error) {
 	return projects, nil
 }
 
-// GetProject returns a project by ID.
-func GetProject(c *Client, id string) (*Project, error) {
-	var project Project
-	if err := c.get(fmt.Sprintf("/api/projects/%s", id), &project); err != nil {
-		return nil, err
-	}
-	return &project, nil
-}
-
 // CreateProjectRequest is the body for creating a project.
 type CreateProjectRequest struct {
 	Name        string `json:"name"`

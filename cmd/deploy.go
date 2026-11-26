@@ -293,13 +293,6 @@ func pollFinalStatus(client *api.Client, deploymentID string) int {
 // waitPollInterval is the polling cadence for --wait (overridable in tests).
 var waitPollInterval = 3 * time.Second
 
-// waitForTerminal polls deployment status until it reaches a terminal state.
-// Returns 0 for active, 1 for failure, 2 for timeout.
-func waitForTerminal(client *api.Client, deploymentID string, timeoutSec int) int {
-	_, code := waitForDeployment(client, deploymentID, timeoutSec, false)
-	return code
-}
-
 // waitForDeployment polls deployment status until it reaches a terminal state.
 // When quiet is true, stdout is left clean (for -o json callers).
 // Returns the latest observed Deployment and exit code (0 active, 1 failure, 2 timeout).
