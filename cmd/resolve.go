@@ -93,3 +93,46 @@ func resolveServiceID(client *api.Client, ref string) (string, error) {
 	}
 	return "", fmt.Errorf("service %q not found", ref)
 }
+
+// resolveServerID resolves a server UUID, slug, name, or unique ID prefix to a server ID.
+func resolveServerID(client *api.Client, ref string) (string, error) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return "", fmt.Errorf("server ID or name is required")
+	}
+	if isUUID(ref) {
+		return ref, nil
+	}
+
+	servers, err := api.ListServers(client)
+	if err != nil {
+		return "", err
+	}
+
+	var exactMatches []api.Server
+	var prefixMatches []api.Server
+	for _, s := range servers {
+		if s.ID == ref {
+			return s.ID, nil
+		}
+		if strings.EqualFold(s.Slug, ref) || strings.EqualFold(s.Name, ref) {
+			exactMatches = append(exactMatches, s)
+		} else if strings.HasPrefix(s.ID, ref) {
+			prefixMatches = append(prefixMatches, s)
+		}
+	}
+
+	if len(exactMatches) == 1 {
+		return exactMatches[0].ID, nil
+	}
+	if len(exactMatches) > 1 {
+		return "", fmt.Errorf("ambiguous server %q — matches %d servers; specify the full ID", ref, len(exactMatches))
+	}
+	if len(prefixMatches) == 1 {
+		return prefixMatches[0].ID, nil
+	}
+	if len(prefixMatches) > 1 {
+		return "", fmt.Errorf("ambiguous server %q — matches multiple servers; specify the full ID", ref)
+	}
+	return "", fmt.Errorf("server %q not found", ref)
+}

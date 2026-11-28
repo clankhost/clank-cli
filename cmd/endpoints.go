@@ -20,7 +20,11 @@ var endpointsListCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client := newClient()
-		endpoints, err := api.ListEndpoints(client, args[0])
+		serviceID, err := resolveServiceID(client, args[0])
+		if err != nil {
+			return err
+		}
+		endpoints, err := api.ListEndpoints(client, serviceID)
 		if err != nil {
 			return err
 		}
@@ -30,6 +34,10 @@ var endpointsListCmd = &cobra.Command{
 		}
 
 		if len(endpoints) == 0 {
+			if domains, domErr := api.ListDomains(client, serviceID); domErr == nil && len(domains) > 0 {
+				fmt.Printf("No endpoints configured (found %d legacy domain(s) — run 'clank domains list %s' to view/manage them)\n", len(domains), serviceID)
+				return nil
+			}
 			fmt.Println("No endpoints configured.")
 			return nil
 		}

@@ -1,7 +1,9 @@
 package api
 
 import (
+	"errors"
 	"fmt"
+	"net/url"
 	"time"
 )
 
@@ -58,6 +60,52 @@ func ListServices(c *Client, projectID string) ([]Service, error) {
 		return nil, err
 	}
 	return services, nil
+}
+
+// ListAllServices returns services across all projects, optionally filtered by serverID.
+// If the control plane does not expose GET /api/services (404/405), it falls back to
+// enumerating projects and listing services per project with client-side filtering.
+func ListAllServices(c *Client, serverID string) ([]Service, error) {
+	path := "/api/services"
+	if serverID != "" {
+		path += "?server_id=" + url.QueryEscape(serverID)
+	}
+
+	var services []Service
+	err := c.get(path, &services)
+	if err == nil {
+		if services == nil {
+			services = []Service{}
+		}
+		return services, nil
+	}
+
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) || (apiErr.StatusCode != 404 && apiErr.StatusCode != 405) {
+		return nil, err
+	}
+
+	projects, projErr := ListProjects(c)
+	if projErr != nil {
+		return nil, projErr
+	}
+
+	all := make([]Service, 0)
+	for _, p := range projects {
+		svcs, svcErr := ListServices(c, p.ID)
+		if svcErr != nil {
+			return nil, svcErr
+		}
+		for _, s := range svcs {
+			if serverID != "" {
+				if s.ServerID == nil || *s.ServerID != serverID {
+					continue
+				}
+			}
+			all = append(all, s)
+		}
+	}
+	return all, nil
 }
 
 // GetService returns a service by ID.

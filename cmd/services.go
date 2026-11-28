@@ -15,17 +15,53 @@ var servicesCmd = &cobra.Command{
 
 var servicesListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List services in a project",
+	Short: "List services in a project, on a server, or across all projects",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		projectID, _ := cmd.Flags().GetString("project")
-		if projectID == "" {
-			return fmt.Errorf("--project is required")
+		projectRef, _ := cmd.Flags().GetString("project")
+		all, _ := cmd.Flags().GetBool("all")
+		serverRef, _ := cmd.Flags().GetString("server")
+		if projectRef == "" && !all && serverRef == "" {
+			return fmt.Errorf("one of --project, --all, or --server is required")
 		}
 
 		client := newClient()
-		services, err := api.ListServices(client, projectID)
-		if err != nil {
-			return err
+
+		var resolvedServerID string
+		if serverRef != "" {
+			var err error
+			resolvedServerID, err = resolveServerID(client, serverRef)
+			if err != nil {
+				return err
+			}
+		}
+
+		var (
+			services []api.Service
+			err      error
+		)
+		if projectRef != "" {
+			projectID, resolveErr := resolveProjectID(client, projectRef)
+			if resolveErr != nil {
+				return resolveErr
+			}
+			services, err = api.ListServices(client, projectID)
+			if err != nil {
+				return err
+			}
+			if resolvedServerID != "" {
+				filtered := make([]api.Service, 0, len(services))
+				for _, s := range services {
+					if s.ServerID != nil && *s.ServerID == resolvedServerID {
+						filtered = append(filtered, s)
+					}
+				}
+				services = filtered
+			}
+		} else {
+			services, err = api.ListAllServices(client, resolvedServerID)
+			if err != nil {
+				return err
+			}
 		}
 
 		if output.IsJSON() {
@@ -37,7 +73,14 @@ var servicesListCmd = &cobra.Command{
 			return nil
 		}
 
-		headers := []string{"ID", "NAME", "REPO", "BRANCH", "PORT", "STATUS", "CREATED"}
+		showServerCol := all || serverRef != ""
+		var headers []string
+		if showServerCol {
+			headers = []string{"ID", "NAME", "SERVER", "REPO", "BRANCH", "PORT", "STATUS", "CREATED"}
+		} else {
+			headers = []string{"ID", "NAME", "REPO", "BRANCH", "PORT", "STATUS", "CREATED"}
+		}
+
 		rows := make([][]string, len(services))
 		for i, s := range services {
 			status := "no deployment"
@@ -46,14 +89,31 @@ var servicesListCmd = &cobra.Command{
 			} else if s.CurrentDeploymentID != nil {
 				status = "active"
 			}
-			rows[i] = []string{
-				s.ID,
-				s.Name,
-				s.RepoURL,
-				s.Branch,
-				fmt.Sprintf("%d", s.Port),
-				output.StatusColor(status),
-				output.TimeSince(s.CreatedAt),
+			if showServerCol {
+				serverCol := "-"
+				if s.ServerID != nil && *s.ServerID != "" {
+					serverCol = output.ShortID(*s.ServerID)
+				}
+				rows[i] = []string{
+					s.ID,
+					s.Name,
+					serverCol,
+					s.RepoURL,
+					s.Branch,
+					fmt.Sprintf("%d", s.Port),
+					output.StatusColor(status),
+					output.TimeSince(s.CreatedAt),
+				}
+			} else {
+				rows[i] = []string{
+					s.ID,
+					s.Name,
+					s.RepoURL,
+					s.Branch,
+					fmt.Sprintf("%d", s.Port),
+					output.StatusColor(status),
+					output.TimeSince(s.CreatedAt),
+				}
 			}
 		}
 		output.Table(headers, rows)
@@ -130,6 +190,13 @@ var servicesCreateCmd = &cobra.Command{
 		}
 
 		client := newClient()
+		if serverID != "" {
+			resolvedServerID, err := resolveServerID(client, serverID)
+			if err != nil {
+				return err
+			}
+			req.ServerID = resolvedServerID
+		}
 		svc, err := api.CreateService(client, projectID, req)
 		if err != nil {
 			return err
@@ -182,6 +249,13 @@ var servicesUpdateCmd = &cobra.Command{
 		}
 
 		client := newClient()
+		if req.ServerID != nil && *req.ServerID != "" {
+			resolvedServerID, err := resolveServerID(client, *req.ServerID)
+			if err != nil {
+				return err
+			}
+			req.ServerID = &resolvedServerID
+		}
 		svc, err := api.UpdateService(client, args[0], req)
 		if err != nil {
 			return err
@@ -269,7 +343,9 @@ var servicesDeleteCmd = &cobra.Command{
 }
 
 func init() {
-	servicesListCmd.Flags().String("project", "", "project ID (required)")
+	servicesListCmd.Flags().String("project", "", "project ID, slug, or name")
+	servicesListCmd.Flags().Bool("all", false, "list services across all projects")
+	servicesListCmd.Flags().String("server", "", "filter services by server ID, prefix, slug, or name")
 	servicesCreateCmd.Flags().String("project", "", "project ID (required)")
 	servicesCreateCmd.Flags().String("name", "", "service name (required)")
 	servicesCreateCmd.Flags().String("repo", "", "git repository URL")

@@ -57,6 +57,16 @@ var serversListCmd = &cobra.Command{
 	},
 }
 
+type serverAddOutput struct {
+	ID                  string `json:"id"`
+	ServerID            string `json:"server_id"`
+	Name                string `json:"name"`
+	EnrollmentToken     string `json:"enrollment_token"`
+	InstallCommand      string `json:"install_command"`
+	ManualEnrollCommand string `json:"manual_enroll_command"`
+	ExpiresAt           string `json:"expires_at"`
+}
+
 var serversAddCmd = &cobra.Command{
 	Use:   "add <name>",
 	Short: "Add a new server and get enrollment token",
@@ -66,6 +76,18 @@ var serversAddCmd = &cobra.Command{
 		token, err := api.CreateServer(client, args[0])
 		if err != nil {
 			return err
+		}
+
+		if output.IsJSON() {
+			return output.JSON(serverAddOutput{
+				ID:                  token.ServerID,
+				ServerID:            token.ServerID,
+				Name:                args[0],
+				EnrollmentToken:     token.EnrollmentToken,
+				InstallCommand:      token.InstallCommand,
+				ManualEnrollCommand: token.ManualEnrollCommand,
+				ExpiresAt:           token.ExpiresAt,
+			})
 		}
 
 		fmt.Printf("Server created (id: %s)\n\n", output.ShortID(token.ServerID))
@@ -91,7 +113,11 @@ var serversRemoveCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client := newClient()
-		if err := api.DeleteServer(client, args[0]); err != nil {
+		serverID, err := resolveServerID(client, args[0])
+		if err != nil {
+			return err
+		}
+		if err := api.DeleteServer(client, serverID); err != nil {
 			return err
 		}
 		fmt.Println("Server decommissioned.")
@@ -117,7 +143,6 @@ var serversCleanupCmd = &cobra.Command{
 	Short: "Preview or apply safe Docker cleanup on a server",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		serverID := args[0]
 		apply, _ := cmd.Flags().GetBool("apply")
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
 		keep, _ := cmd.Flags().GetInt("keep")
@@ -130,12 +155,13 @@ var serversCleanupCmd = &cobra.Command{
 		}
 
 		client := newClient()
+		serverID, err := resolveServerID(client, args[0])
+		if err != nil {
+			return err
+		}
 		req := api.DockerCleanupRequest{KeepSuccessfulImages: keep}
 
-		var (
-			resp *api.DockerCleanupResponse
-			err  error
-		)
+		var resp *api.DockerCleanupResponse
 		if apply {
 			resp, err = api.ApplyDockerCleanup(client, serverID, req)
 		} else {
